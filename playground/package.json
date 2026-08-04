@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "name": "nuxt-pigeon-playground",
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate"
+  },
+  "dependencies": {
+    "nuxt": "^4.5.1",
+    "nuxt-pigeon": "latest"
+  }
+}
