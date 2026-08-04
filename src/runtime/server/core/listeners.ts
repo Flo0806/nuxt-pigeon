@@ -3,7 +3,7 @@ import type { PigeonMessage } from '../../types'
 /** Listeners registered under this name get every channel, which is what the stream needs. */
 export const ANY = '*'
 
-export type WebhookHandler = (message: PigeonMessage) => unknown | Promise<unknown>
+export type Handler = (message: PigeonMessage) => unknown | Promise<unknown>
 
 /**
  * Survives HMR. Without this every reload would add another copy of the same handler
@@ -11,16 +11,16 @@ export type WebhookHandler = (message: PigeonMessage) => unknown | Promise<unkno
  */
 const REGISTRY = Symbol.for('nuxt-pigeon:listeners')
 
-type Store = Record<symbol, Map<string, Set<WebhookHandler>> | undefined>
+type Store = Record<symbol, Map<string, Set<Handler>> | undefined>
 
-function registry(): Map<string, Set<WebhookHandler>> {
+function registry(): Map<string, Set<Handler>> {
   const store = globalThis as Store
 
   return (store[REGISTRY] ??= new Map())
 }
 
 /** Returns the function to unregister again, which a plugin needs on shutdown. */
-export function addListener(channel: string, handler: WebhookHandler): () => void {
+export function addListener(channel: string, handler: Handler): () => void {
   const handlers = registry().get(channel) ?? new Set()
   handlers.add(handler)
   registry().set(channel, handlers)

@@ -20,6 +20,15 @@ export interface RequestOptions {
    * message twice.
    */
   retryOnNetworkError?: boolean
+  /**
+   * How long a service asked us to wait, when it does not use `Retry-After`.
+   * Telegram puts it in the body as `parameters.retry_after`, others elsewhere.
+   *
+   * Exists so no channel specific knowledge has to live down here: the channel
+   * supplies the reading, the transport keeps the policy. Milliseconds, and
+   * `undefined` means the header decides, or our own backoff.
+   */
+  retryAfter?: (response: Response, body: unknown) => number | undefined
 }
 
 /**
@@ -60,9 +69,16 @@ export function createRequest(
     timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
 
     retryDelay(context: FetchContext) {
-      const asked = retryAfterMs(context.response?.headers.get('retry-after'))
-      if (asked !== undefined) {
-        return asked
+      const response = context.response
+
+      // The service telling us beats anything we would come up with. Header first,
+      // because it is the standard, then whatever the channel knows about its body.
+      const asked =
+        retryAfterMs(response?.headers.get('retry-after')) ??
+        (response && options.retryAfter?.(response, response._data))
+
+      if (asked !== undefined && asked !== null) {
+        return Math.min(asked, MAX_RETRY_AFTER_MS)
       }
 
       // ofetch counts down, so the remaining tries tell us which attempt this is.

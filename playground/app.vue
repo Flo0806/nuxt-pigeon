@@ -148,6 +148,47 @@ async function sendDiscord() {
   }
 }
 
+const tgText = ref('<b>Deploy failed</b> on main')
+const tgParseMode = ref('HTML')
+const tgEscape = ref(false)
+const tgPending = ref(false)
+const tgResult = ref<Sent | null>(null)
+
+async function sendTelegram() {
+  tgPending.value = true
+  tgResult.value = null
+  try {
+    tgResult.value = await $fetch('/api/telegram', {
+      method: 'POST',
+      body: { text: tgText.value, parseMode: tgParseMode.value, escape: tgEscape.value },
+    })
+  } finally {
+    tgPending.value = false
+  }
+}
+
+interface HookInfo {
+  ok: boolean
+  info?: { url: string; pending_update_count: number; last_error_message?: string }
+  error?: string
+}
+
+const baseUrl = ref('')
+const hookPending = ref(false)
+const hookInfo = ref<HookInfo | null>(null)
+
+async function manageWebhook(action: 'set' | 'delete' | 'info') {
+  hookPending.value = true
+  try {
+    hookInfo.value = await $fetch('/api/telegram-webhook', {
+      method: 'POST',
+      body: { action, baseUrl: baseUrl.value },
+    })
+  } finally {
+    hookPending.value = false
+  }
+}
+
 async function probe() {
   pending.value = true
   result.value = null
@@ -319,11 +360,14 @@ async function probe() {
       </template>
     </section>
     <section>
-      <h2>Layer 1: webhook.listen</h2>
+      <h2>Layer 3: usePigeon</h2>
       <p class="hint">
-        Sends to our own route at <code>/api/_pigeon/webhook</code> and shows what the listener
-        received. The handler is registered once in <code>server/plugins/pigeon.ts</code>.
-        <code>raw</code> is what a signature would have to be checked against, byte for byte.
+        Stream is
+        <strong :class="connected ? 'ok' : 'fail'">{{
+          connected ? 'connected' : 'not connected'
+        }}</strong
+        >. Nothing below is fetched: messages arrive on their own, whether they come from the button
+        here, from Telegram through the tunnel, or from a second browser tab.
       </p>
 
       <form @submit.prevent="selfSend">
@@ -344,15 +388,18 @@ async function probe() {
 
       <p v-if="selfError" class="fail">{{ selfError }}</p>
 
-      <template v-if="inbox.length">
+      <p v-if="!inbox.length" class="hint">Nothing yet.</p>
+
+      <template v-else>
         <p class="hint">Live, newest first:</p>
         <ul>
           <li v-for="message in inbox" :key="message.at">
-            <strong>{{
-              message.headers['x-github-event'] ?? message.headers['content-type']
-            }}</strong>
-            <span class="hint"> {{ message.at }} - {{ message.raw.length }} bytes</span>
-            <pre>{{ preview(message.raw) }}</pre>
+            <strong>{{ message.channel }}</strong>
+            <span v-if="message.from" class="hint"> from {{ message.from.name }}</span>
+            <span class="hint"> - {{ message.at }} - {{ message.raw.length }} bytes</span>
+            <!-- Channels that know their shape fill `text`, the generic webhook does not. -->
+            <div v-if="message.text" class="quote">{{ message.text }}</div>
+            <pre v-else>{{ preview(message.raw) }}</pre>
             <details>
               <summary>headers</summary>
               <pre>{{ JSON.stringify(message.headers, null, 2) }}</pre>
@@ -391,6 +438,76 @@ async function probe() {
         </p>
         <!-- What Discord stored, so escaping is visible rather than claimed. -->
         <pre v-if="discordResult.sent">{{ discordResult.sent }}</pre>
+      </template>
+    </section>
+    <section>
+      <h2>Layer 2: telegram, receiving</h2>
+      <p class="hint">
+        Telegram cannot reach localhost, so this needs <code>--tunnel</code>. Paste the tunnel
+        address, register it, then write to your bot. The message appears above in
+        <code>usePigeon</code> without a reload, with its text already pulled out.
+      </p>
+
+      <form @submit.prevent="manageWebhook('set')">
+        <label>
+          Public base url
+          <input v-model="baseUrl" placeholder="https://something.trycloudflare.com" />
+        </label>
+
+        <button type="submit" :disabled="hookPending || !baseUrl.trim()">Register</button>
+      </form>
+
+      <button :disabled="hookPending" @click="manageWebhook('info')">
+        What does Telegram think is registered
+      </button>
+      <button :disabled="hookPending" @click="manageWebhook('delete')">Unregister</button>
+
+      <template v-if="hookInfo">
+        <p v-if="!hookInfo.ok" class="fail">{{ hookInfo.error }}</p>
+        <!-- last_error_message is what Telegram itself saw when it tried to deliver. -->
+        <pre v-else>{{ JSON.stringify(hookInfo.info, null, 2) }}</pre>
+      </template>
+    </section>
+
+    <section>
+      <h2>Layer 2: telegram, sending</h2>
+      <p class="hint">
+        The other shape of a channel: not a webhook. The method sits in the url, so this one talks
+        to <code>createRequest</code> directly instead of <code>post</code>. The token sits in the
+        url too, which is why its errors are rebuilt rather than passed on.
+      </p>
+
+      <form @submit.prevent="sendTelegram">
+        <label>
+          Text
+          <textarea v-model="tgText" rows="3" />
+        </label>
+
+        <label>
+          Parse mode
+          <select v-model="tgParseMode">
+            <option value="">none, the text stays literal</option>
+            <option value="HTML">HTML</option>
+            <option value="MarkdownV2">MarkdownV2</option>
+          </select>
+        </label>
+
+        <label class="inline">
+          <input v-model="tgEscape" type="checkbox" />
+          Run it through <code>escapeHtml</code> first
+        </label>
+
+        <button type="submit" :disabled="tgPending || !tgText.trim()">
+          {{ tgPending ? 'Sending...' : 'Send to Telegram' }}
+        </button>
+      </form>
+
+      <template v-if="tgResult">
+        <p :class="tgResult.ok ? 'ok' : 'fail'">
+          {{ tgResult.ok ? 'Sent' : tgResult.error }}
+        </p>
+        <!-- Telegram echoes the parsed message, so this is what actually arrived. -->
+        <pre v-if="tgResult.sent">{{ tgResult.sent }}</pre>
       </template>
     </section>
   </main>
@@ -481,6 +598,13 @@ ul {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.quote {
+  margin-top: 0.3rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid #ddd;
+  color: #444;
 }
 
 summary {

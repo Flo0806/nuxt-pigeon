@@ -6,6 +6,8 @@ export default defineNuxtConfig({
     channels: {
       // url comes from PIGEON_DISCORD_WEBHOOK_URL
       discord: true,
+      // token and chat id come from PIGEON_TELEGRAM_*
+      telegram: { receive: true },
     },
     webhook: {
       // Registers POST /api/_pigeon/webhook

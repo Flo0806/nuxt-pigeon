@@ -4,11 +4,13 @@ import {
   addServerImports,
   createResolver,
   defineNuxtModule,
+  useLogger,
 } from '@nuxt/kit'
 
 /** Prefixed so they cannot collide with a route the user wrote. */
 const DEFAULT_ROUTE = '/api/_pigeon/webhook'
 const DEFAULT_STREAM_ROUTE = '/api/_pigeon/stream'
+const DEFAULT_TELEGRAM_ROUTE = '/api/_pigeon/telegram'
 
 export interface WebhookEndpoint {
   /** Falls back to `PIGEON_WEBHOOK_<NAME>_URL`, so it can stay out of the config. */
@@ -48,8 +50,22 @@ export interface DiscordOptions {
   webhookUrl?: string
 }
 
+export interface TelegramOptions {
+  /** Falls back to `PIGEON_TELEGRAM_BOT_TOKEN`. */
+  token?: string
+  /** Falls back to `PIGEON_TELEGRAM_CHAT_ID`. */
+  chatId?: string | number
+  /**
+   * Registers the route Telegram delivers updates to. Telegram cannot reach
+   * localhost, so development needs a tunnel as well.
+   */
+  receive?: boolean
+  route?: string
+}
+
 export interface ChannelOptions {
   discord?: boolean | DiscordOptions
+  telegram?: boolean | TelegramOptions
 }
 
 export interface ModuleOptions {
@@ -73,6 +89,7 @@ declare module 'nuxt/schema' {
       }
       channels: {
         discord: { webhookUrl: string }
+        telegram: { token: string; chatId: string; secretToken: string; route: string }
       }
     }
   }
@@ -86,9 +103,13 @@ export default defineNuxtModule<ModuleOptions>({
   defaults: {},
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
+    const logger = useLogger('nuxt-pigeon')
     const webhook = options.webhook ?? {}
     const discord = options.channels?.discord
     const discordOptions = typeof discord === 'object' ? discord : {}
+    const telegram = options.channels?.telegram
+    const telegramOptions = typeof telegram === 'object' ? telegram : {}
+    const telegramRoute = telegramOptions.route || DEFAULT_TELEGRAM_ROUTE
     const streamRoute = options.stream?.route || DEFAULT_STREAM_ROUTE
     const streaming = options.stream?.enabled ?? nuxt.options.dev
 
@@ -108,6 +129,13 @@ export default defineNuxtModule<ModuleOptions>({
       },
       channels: {
         discord: { webhookUrl: discordOptions.webhookUrl || '' },
+        // The token never belongs in a config file, only the placeholder does.
+        telegram: {
+          token: '',
+          chatId: String(telegramOptions.chatId ?? ''),
+          secretToken: '',
+          route: telegramRoute,
+        },
       },
     }
 
@@ -142,6 +170,28 @@ export default defineNuxtModule<ModuleOptions>({
         name: 'discord',
         from: resolver.resolve('./runtime/server/channels/discord/discord'),
       })
+    }
+
+    if (telegram) {
+      addServerImports({
+        name: 'telegram',
+        from: resolver.resolve('./runtime/server/channels/telegram/telegram'),
+      })
+
+      if (telegramOptions.receive) {
+        addServerHandler({
+          route: telegramRoute,
+          method: 'post',
+          handler: resolver.resolve('./runtime/server/channels/telegram/route'),
+        })
+
+        if (nuxt.options.dev) {
+          logger.warn(
+            `telegram delivers to ${telegramRoute}, and it cannot reach localhost. ` +
+              'Run with --tunnel and call telegram.setWebhook() with the tunnel address.',
+          )
+        }
+      }
     }
 
     if (webhook.receive) {

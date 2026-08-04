@@ -106,6 +106,55 @@ describe('createRequest', () => {
     expect(Date.now() - started).toBeGreaterThanOrEqual(60)
   })
 
+  it('lets a channel supply the wait when the service does not use the header', async () => {
+    // Telegram answers 429 with parameters.retry_after in the body, not as a header.
+    const { fetch, calls } = fake(429, 200)
+    const seen: unknown[] = []
+
+    await createRequest(
+      {
+        retryDelayMs: 1,
+        retryAfter: (_response, body) => {
+          seen.push(body)
+
+          return 0
+        },
+      },
+      fetch,
+    )('https://x.dev')
+
+    expect(calls).toHaveLength(2)
+    expect(seen).toHaveLength(1)
+  })
+
+  it('lets the header win over the channel reading, it is the standard', async () => {
+    const { fetch } = fake({ status: 429, retryAfter: '0' }, 200)
+    let asked = false
+
+    await createRequest(
+      {
+        retryDelayMs: 200,
+        retryAfter: () => {
+          asked = true
+
+          return 5000
+        },
+      },
+      fetch,
+    )('https://x.dev')
+
+    expect(asked).toBe(false)
+  })
+
+  it('falls back to the backoff when neither says anything', async () => {
+    const { fetch } = fake(500, 200)
+    const started = Date.now()
+
+    await createRequest({ retryDelayMs: 30, retryAfter: () => undefined }, fetch)('https://x.dev')
+
+    expect(Date.now() - started).toBeGreaterThanOrEqual(25)
+  })
+
   it('errors carry the status, so a caller can react to it', async () => {
     const { fetch } = fake(404)
 

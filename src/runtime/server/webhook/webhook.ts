@@ -1,6 +1,6 @@
 import { useRuntimeConfig } from '#imports'
 import { resolveEndpoint } from '../core/endpoint'
-import { addListener, type WebhookHandler } from '../core/listeners'
+import { addListener, type Handler } from '../core/listeners'
 import { post, type PostOptions } from '../core/post'
 
 export interface WebhookSendOptions extends PostOptions {
@@ -44,7 +44,7 @@ async function send(payload: unknown, options: WebhookSendOptions = {}) {
  * Returns the function to unregister, which matters during development: without it a
  * hot reload would stack another copy of the same handler.
  */
-function listen(handler: WebhookHandler): () => void {
+function listen(handler: Handler): () => void {
   return addListener('webhook', handler)
 }
 

@@ -10,4 +10,12 @@ export interface PigeonMessage {
   body: unknown
   /** Lower cased keys, which is what h3 hands out. */
   headers: Record<string, string>
+  /**
+   * Filled by channels that know their own shape. The generic webhook leaves them
+   * empty, because it has no idea what it just received.
+   */
+  text?: string
+  from?: { id: string; name?: string }
+  /** Chat, channel or thread the message belongs to. */
+  conversation?: string
 }
