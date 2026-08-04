@@ -4,6 +4,8 @@ export default defineNuxtConfig({
   compatibilityDate: 'latest',
   nuxtPigeon: {
     webhook: {
+      // Registers POST /api/_pigeon/webhook
+      receive: true,
       // Everything a receiver needs, in the config. Secrets stay in .env.
       endpoints: {
         // A url in the config, because httpbingo is no secret.

@@ -97,6 +97,46 @@ async function sendConfigured() {
   }
 }
 
+interface Received {
+  raw: string
+  body: unknown
+  headers: Record<string, string>
+  at: string
+}
+
+const selfText = ref('an mich selbst')
+const selfSecret = ref('')
+const selfPending = ref(false)
+const selfError = ref('')
+const inbox = ref<Received[]>([])
+
+/** A GitHub push payload is 20kb, so the page shows the beginning and the size. */
+function preview(raw: string) {
+  return raw.length > 400 ? `${raw.slice(0, 400)}\n... ${raw.length - 400} more bytes` : raw
+}
+
+async function loadInbox() {
+  inbox.value = await $fetch('/api/received')
+}
+
+async function selfSend() {
+  selfPending.value = true
+  selfError.value = ''
+  try {
+    const sent = await $fetch('/api/self-send', {
+      method: 'POST',
+      body: { text: selfText.value, secret: selfSecret.value },
+    })
+    if (!sent.ok) selfError.value = sent.error ?? ''
+
+    // The route answers before the handlers run, so give them a moment.
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    inbox.value = await $fetch('/api/received')
+  } finally {
+    selfPending.value = false
+  }
+}
+
 async function probe() {
   pending.value = true
   result.value = null
@@ -267,6 +307,51 @@ async function probe() {
         </template>
       </template>
     </section>
+    <section>
+      <h2>Layer 1: webhook.listen</h2>
+      <p class="hint">
+        Sends to our own route at <code>/api/_pigeon/webhook</code> and shows what the listener
+        received. The handler is registered once in <code>server/plugins/pigeon.ts</code>.
+        <code>raw</code> is what a signature would have to be checked against, byte for byte.
+      </p>
+
+      <form @submit.prevent="selfSend">
+        <label>
+          Text
+          <input v-model="selfText" />
+        </label>
+
+        <label>
+          Secret, only to see the signature headers arrive
+          <input v-model="selfSecret" placeholder="empty sends unsigned" />
+        </label>
+
+        <button type="submit" :disabled="selfPending">
+          {{ selfPending ? 'Sending...' : 'Send to myself' }}
+        </button>
+      </form>
+
+      <button :disabled="selfPending" @click="loadInbox">Reload what arrived</button>
+
+      <p v-if="selfError" class="fail">{{ selfError }}</p>
+
+      <template v-if="inbox.length">
+        <p class="hint">What the listener got, newest first:</p>
+        <ul>
+          <li v-for="message in inbox" :key="message.at">
+            <strong>{{
+              message.headers['x-github-event'] ?? message.headers['content-type']
+            }}</strong>
+            <span class="hint"> {{ message.at }} - {{ message.raw.length }} bytes</span>
+            <pre>{{ preview(message.raw) }}</pre>
+            <details>
+              <summary>headers</summary>
+              <pre>{{ JSON.stringify(message.headers, null, 2) }}</pre>
+            </details>
+          </li>
+        </ul>
+      </template>
+    </section>
   </main>
 </template>
 
@@ -347,6 +432,20 @@ button {
 
 .fail {
   color: #b3261e;
+}
+
+ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+summary {
+  font-size: 0.85rem;
+  color: #666;
+  cursor: pointer;
 }
 
 pre {

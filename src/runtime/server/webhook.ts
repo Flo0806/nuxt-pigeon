@@ -1,5 +1,6 @@
 import { useRuntimeConfig } from '#imports'
 import { resolveEndpoint } from '../endpoint'
+import { addListener, type WebhookHandler } from '../listeners'
 import { post, type PostOptions } from '../post'
 
 export interface WebhookSendOptions extends PostOptions {
@@ -36,4 +37,15 @@ async function send(payload: unknown, options: WebhookSendOptions = {}) {
   })
 }
 
-export const webhook = { send }
+/**
+ * Runs the handler for every request that reaches the configured route. Register it
+ * from a Nitro plugin, so it happens once at startup instead of per request.
+ *
+ * Returns the function to unregister, which matters during development: without it a
+ * hot reload would stack another copy of the same handler.
+ */
+function listen(handler: WebhookHandler): () => void {
+  return addListener('webhook', handler)
+}
+
+export const webhook = { send, listen }

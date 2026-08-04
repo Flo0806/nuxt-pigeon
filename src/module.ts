@@ -1,4 +1,7 @@
-import { addServerImports, createResolver, defineNuxtModule } from '@nuxt/kit'
+import { addServerHandler, addServerImports, createResolver, defineNuxtModule } from '@nuxt/kit'
+
+/** Prefixed so it cannot collide with a route the user wrote. */
+const DEFAULT_ROUTE = '/api/_pigeon/webhook'
 
 export interface WebhookEndpoint {
   /** Falls back to `PIGEON_WEBHOOK_<NAME>_URL`, so it can stay out of the config. */
@@ -8,6 +11,10 @@ export interface WebhookEndpoint {
 }
 
 export interface WebhookOptions {
+  /** Registers the route incoming webhooks are delivered to. */
+  receive?: boolean
+  /** Where that route lives. Change it if it collides with your own. */
+  route?: string
   /** Target for calls that name no endpoint. */
   url?: string
   /** Headers every endpoint inherits. */
@@ -70,5 +77,13 @@ export default defineNuxtModule<ModuleOptions>({
     // Hands Nitro a path, never an import. Anything imported here would run in the
     // build process, which has neither the user's .env nor their cwd.
     addServerImports({ name: 'webhook', from: resolver.resolve('./runtime/server/webhook') })
+
+    if (webhook.receive) {
+      addServerHandler({
+        route: webhook.route || DEFAULT_ROUTE,
+        method: 'post',
+        handler: resolver.resolve('./runtime/server/webhook-route'),
+      })
+    }
   },
 })
