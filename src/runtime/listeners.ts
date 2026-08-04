@@ -1,4 +1,11 @@
+/** Listeners registered under this name get every channel, which is what the stream needs. */
+export const ANY = '*'
+
 export interface WebhookMessage {
+  /** Which channel it came in on. */
+  channel: string
+  /** When we received it, not when the sender created it. */
+  at: string
   /** The untouched bytes. A signature covers these, a re-serialised body does not. */
   raw: string
   /** Parsed when the body is JSON, otherwise the same string as `raw`. */
@@ -42,8 +49,12 @@ export function listenerCount(channel: string): number {
  * have. So every handler is awaited on its own and its error only reported.
  */
 export async function dispatch(channel: string, message: WebhookMessage): Promise<void> {
-  const handlers = registry().get(channel)
-  if (!handlers?.size) {
+  const handlers = new Set([
+    ...(registry().get(channel) ?? []),
+    ...(channel === ANY ? [] : (registry().get(ANY) ?? [])),
+  ])
+
+  if (!handlers.size) {
     return
   }
 

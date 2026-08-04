@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
+  ANY,
   addListener,
   clearListeners,
   dispatch,
@@ -7,7 +8,13 @@ import {
   type WebhookMessage,
 } from '../src/runtime/listeners'
 
-const message: WebhookMessage = { raw: '{"a":1}', body: { a: 1 }, headers: {} }
+const message: WebhookMessage = {
+  channel: 'webhook',
+  at: '2026-08-05T12:00:00.000Z',
+  raw: '{"a":1}',
+  body: { a: 1 },
+  headers: {},
+}
 
 beforeEach(() => clearListeners())
 
@@ -29,6 +36,29 @@ describe('addListener', () => {
     await dispatch('webhook', message)
 
     expect(count).toBe(2)
+  })
+
+  it('gives a wildcard listener every channel, which is what the stream needs', async () => {
+    const seen: string[] = []
+    addListener(ANY, (m) => seen.push(m.channel))
+
+    await dispatch('webhook', message)
+    await dispatch('telegram', { ...message, channel: 'telegram' })
+
+    expect(seen).toEqual(['webhook', 'telegram'])
+  })
+
+  it('runs a channel listener and a wildcard listener exactly once each', async () => {
+    let both = 0
+    const handler = () => both++
+
+    addListener('webhook', handler)
+    addListener(ANY, handler)
+
+    await dispatch('webhook', message)
+
+    // The same function under two names is still one handler, not two calls.
+    expect(both).toBe(1)
   })
 
   it('keeps channels apart', async () => {

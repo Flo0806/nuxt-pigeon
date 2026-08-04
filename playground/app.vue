@@ -97,26 +97,17 @@ async function sendConfigured() {
   }
 }
 
-interface Received {
-  raw: string
-  body: unknown
-  headers: Record<string, string>
-  at: string
-}
+/** No polling and no reload button: the messages arrive on their own. */
+const { messages: inbox, connected } = usePigeon()
 
 const selfText = ref('an mich selbst')
 const selfSecret = ref('')
 const selfPending = ref(false)
 const selfError = ref('')
-const inbox = ref<Received[]>([])
 
 /** A GitHub push payload is 20kb, so the page shows the beginning and the size. */
 function preview(raw: string) {
   return raw.length > 400 ? `${raw.slice(0, 400)}\n... ${raw.length - 400} more bytes` : raw
-}
-
-async function loadInbox() {
-  inbox.value = await $fetch('/api/received')
 }
 
 async function selfSend() {
@@ -128,10 +119,6 @@ async function selfSend() {
       body: { text: selfText.value, secret: selfSecret.value },
     })
     if (!sent.ok) selfError.value = sent.error ?? ''
-
-    // The route answers before the handlers run, so give them a moment.
-    await new Promise((resolve) => setTimeout(resolve, 200))
-    inbox.value = await $fetch('/api/received')
   } finally {
     selfPending.value = false
   }
@@ -331,12 +318,10 @@ async function probe() {
         </button>
       </form>
 
-      <button :disabled="selfPending" @click="loadInbox">Reload what arrived</button>
-
       <p v-if="selfError" class="fail">{{ selfError }}</p>
 
       <template v-if="inbox.length">
-        <p class="hint">What the listener got, newest first:</p>
+        <p class="hint">Live, newest first:</p>
         <ul>
           <li v-for="message in inbox" :key="message.at">
             <strong>{{

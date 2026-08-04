@@ -29,6 +29,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const message: WebhookMessage = {
+    channel: 'webhook',
+    at: new Date().toISOString(),
     raw,
     body,
     headers: getRequestHeaders(event) as Record<string, string>,

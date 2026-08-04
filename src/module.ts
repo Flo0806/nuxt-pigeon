@@ -1,7 +1,14 @@
-import { addServerHandler, addServerImports, createResolver, defineNuxtModule } from '@nuxt/kit'
+import {
+  addImports,
+  addServerHandler,
+  addServerImports,
+  createResolver,
+  defineNuxtModule,
+} from '@nuxt/kit'
 
-/** Prefixed so it cannot collide with a route the user wrote. */
+/** Prefixed so they cannot collide with a route the user wrote. */
 const DEFAULT_ROUTE = '/api/_pigeon/webhook'
+const DEFAULT_STREAM_ROUTE = '/api/_pigeon/stream'
 
 export interface WebhookEndpoint {
   /** Falls back to `PIGEON_WEBHOOK_<NAME>_URL`, so it can stay out of the config. */
@@ -26,11 +33,26 @@ export interface WebhookOptions {
   endpoints?: Record<string, WebhookEndpoint>
 }
 
+export interface StreamOptions {
+  /**
+   * Pushes incoming messages to the browser. **Defaults to development only**: every
+   * open tab would otherwise receive every message, and those can be personal data.
+   * Switching it on in production means guarding the route yourself.
+   */
+  enabled?: boolean
+  route?: string
+}
+
 export interface ModuleOptions {
   webhook?: WebhookOptions
+  stream?: StreamOptions
 }
 
 declare module 'nuxt/schema' {
+  interface PublicRuntimeConfig {
+    pigeon: { streamRoute: string; streaming: boolean }
+  }
+
   interface RuntimeConfig {
     pigeon: {
       webhook: {
@@ -52,6 +74,8 @@ export default defineNuxtModule<ModuleOptions>({
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
     const webhook = options.webhook ?? {}
+    const streamRoute = options.stream?.route || DEFAULT_STREAM_ROUTE
+    const streaming = options.stream?.enabled ?? nuxt.options.dev
 
     // Placeholders for every key, filled or not. Nuxt only applies a NUXT_ env
     // override to keys that already exist, and empty strings cost nothing.
@@ -74,9 +98,20 @@ export default defineNuxtModule<ModuleOptions>({
       ...nuxt.options.runtimeConfig.pigeon,
     }
 
+    // Public because the composable runs in the browser and needs the path.
+    nuxt.options.runtimeConfig.public.pigeon = { streamRoute, streaming }
+
     // Hands Nitro a path, never an import. Anything imported here would run in the
     // build process, which has neither the user's .env nor their cwd.
     addServerImports({ name: 'webhook', from: resolver.resolve('./runtime/server/webhook') })
+
+    // Always imported, even with the stream off: `nuxt prepare` runs with dev false,
+    // so gating this would leave the type missing wherever it is typechecked.
+    addImports({ name: 'usePigeon', from: resolver.resolve('./runtime/composables/usePigeon') })
+
+    if (streaming) {
+      addServerHandler({ route: streamRoute, handler: resolver.resolve('./runtime/server/stream') })
+    }
 
     if (webhook.receive) {
       addServerHandler({
