@@ -43,9 +43,19 @@ export interface StreamOptions {
   route?: string
 }
 
+export interface DiscordOptions {
+  /** Falls back to `PIGEON_DISCORD_WEBHOOK_URL`. The url itself is the credential. */
+  webhookUrl?: string
+}
+
+export interface ChannelOptions {
+  discord?: boolean | DiscordOptions
+}
+
 export interface ModuleOptions {
   webhook?: WebhookOptions
   stream?: StreamOptions
+  channels?: ChannelOptions
 }
 
 declare module 'nuxt/schema' {
@@ -61,6 +71,9 @@ declare module 'nuxt/schema' {
         headers: Record<string, string>
         endpoints: Record<string, { url: string; secret: string; headers: Record<string, string> }>
       }
+      channels: {
+        discord: { webhookUrl: string }
+      }
     }
   }
 }
@@ -74,6 +87,8 @@ export default defineNuxtModule<ModuleOptions>({
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
     const webhook = options.webhook ?? {}
+    const discord = options.channels?.discord
+    const discordOptions = typeof discord === 'object' ? discord : {}
     const streamRoute = options.stream?.route || DEFAULT_STREAM_ROUTE
     const streaming = options.stream?.enabled ?? nuxt.options.dev
 
@@ -90,6 +105,9 @@ export default defineNuxtModule<ModuleOptions>({
             { url: endpoint.url || '', secret: '', headers: endpoint.headers ?? {} },
           ]),
         ),
+      },
+      channels: {
+        discord: { webhookUrl: discordOptions.webhookUrl || '' },
       },
     }
 
@@ -116,6 +134,13 @@ export default defineNuxtModule<ModuleOptions>({
       addServerHandler({
         route: streamRoute,
         handler: resolver.resolve('./runtime/server/stream/route'),
+      })
+    }
+
+    if (discord) {
+      addServerImports({
+        name: 'discord',
+        from: resolver.resolve('./runtime/server/channels/discord/discord'),
       })
     }
 

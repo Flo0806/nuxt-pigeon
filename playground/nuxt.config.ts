@@ -3,6 +3,10 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   compatibilityDate: 'latest',
   nuxtPigeon: {
+    channels: {
+      // url comes from PIGEON_DISCORD_WEBHOOK_URL
+      discord: true,
+    },
     webhook: {
       // Registers POST /api/_pigeon/webhook
       receive: true,

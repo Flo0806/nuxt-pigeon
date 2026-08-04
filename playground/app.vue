@@ -124,6 +124,30 @@ async function selfSend() {
   }
 }
 
+interface Sent {
+  ok: boolean
+  sent?: string
+  error?: string
+}
+
+const discordText = ref('*Deploy failed* on `main`')
+const discordEscape = ref(false)
+const discordPending = ref(false)
+const discordResult = ref<Sent | null>(null)
+
+async function sendDiscord() {
+  discordPending.value = true
+  discordResult.value = null
+  try {
+    discordResult.value = await $fetch('/api/discord', {
+      method: 'POST',
+      body: { text: discordText.value, escape: discordEscape.value },
+    })
+  } finally {
+    discordPending.value = false
+  }
+}
+
 async function probe() {
   pending.value = true
   result.value = null
@@ -335,6 +359,38 @@ async function probe() {
             </details>
           </li>
         </ul>
+      </template>
+    </section>
+    <section>
+      <h2>Layer 2: discord</h2>
+      <p class="hint">
+        The first channel, and it is deliberately thin: 54 lines. It contributes its field names,
+        its 2000 character limit and an escaping helper. Retry, timeout, headers and the error that
+        never carries the url all come from below.
+      </p>
+
+      <form @submit.prevent="sendDiscord">
+        <label>
+          Text
+          <textarea v-model="discordText" rows="3" />
+        </label>
+
+        <label class="inline">
+          <input v-model="discordEscape" type="checkbox" />
+          Run it through <code>escapeMarkdown</code> first
+        </label>
+
+        <button type="submit" :disabled="discordPending || !discordText.trim()">
+          {{ discordPending ? 'Sending...' : 'Send to Discord' }}
+        </button>
+      </form>
+
+      <template v-if="discordResult">
+        <p :class="discordResult.ok ? 'ok' : 'fail'">
+          {{ discordResult.ok ? 'Sent' : discordResult.error }}
+        </p>
+        <!-- What Discord stored, so escaping is visible rather than claimed. -->
+        <pre v-if="discordResult.sent">{{ discordResult.sent }}</pre>
       </template>
     </section>
   </main>
