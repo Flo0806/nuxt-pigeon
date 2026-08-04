@@ -1,6 +1,6 @@
 {
-  "private": true,
   "name": "nuxt-pigeon-playground",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "nuxt dev",

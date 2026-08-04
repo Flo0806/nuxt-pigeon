@@ -2,15 +2,15 @@
   "name": "nuxt-pigeon",
   "version": "1.0.0",
   "description": "Send and receive messages across Telegram, Slack, Discord and any webhook.",
-  "repository": "your-org/my-module",
   "license": "MIT",
+  "repository": "your-org/my-module",
+  "workspaces": [
+    "playground"
+  ],
+  "files": [
+    "dist"
+  ],
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/types.d.mts",
-      "import": "./dist/module.mjs"
-    }
-  },
   "main": "./dist/module.mjs",
   "typesVersions": {
     "*": {
@@ -19,19 +19,21 @@
       ]
     }
   },
-  "files": [
-    "dist"
-  ],
-  "workspaces": [
-    "playground"
-  ],
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    }
+  },
   "scripts": {
     "prepack": "nuxt-module-build build",
     "dev": "npm run dev:prepare && nuxt dev playground",
     "dev:build": "nuxt build playground",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
     "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
-    "lint": "eslint .",
+    "lint": "oxlint",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
     "test": "vitest run",
     "test:watch": "vitest watch",
     "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
@@ -49,6 +51,8 @@
     "changelogen": "^0.6.2",
     "eslint": "^10.8.0",
     "nuxt": "^4.5.1",
+    "oxfmt": "^0.62.0",
+    "oxlint": "^1.77.0",
     "typescript": "~5.9.3",
     "vitest": "^4.1.10",
     "vue-tsc": "^3.3.9"
