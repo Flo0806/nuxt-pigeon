@@ -5,7 +5,8 @@ import {
   readRawBody,
   setResponseStatus,
 } from 'h3'
-import { dispatch, type WebhookMessage } from '../listeners'
+import { dispatch } from '../core/listeners'
+import type { PigeonMessage } from '../../types'
 
 /**
  * The route incoming webhooks land on. Reads the body raw and hands it on untouched:
@@ -28,7 +29,7 @@ export default defineEventHandler(async (event) => {
     // Not JSON, so the string itself is the body.
   }
 
-  const message: WebhookMessage = {
+  const message: PigeonMessage = {
     channel: 'webhook',
     at: new Date().toISOString(),
     raw,

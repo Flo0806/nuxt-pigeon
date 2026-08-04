@@ -1,4 +1,4 @@
-import { createRequest } from '../../../src/runtime/request'
+import { createRequest } from '../../../src/runtime/server/core/request'
 
 /**
  * Layer 0 on its own. Sends one request to httpbingo and reports how long it took,

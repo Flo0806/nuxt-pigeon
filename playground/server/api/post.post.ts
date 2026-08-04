@@ -1,4 +1,4 @@
-import { post } from '../../../src/runtime/post'
+import { post } from '../../../src/runtime/server/core/post'
 
 /**
  * Layer 1 sending. Posts to httpbingo, which mirrors the request back, so the body

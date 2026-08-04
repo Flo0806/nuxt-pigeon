@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mergeHeaders, serialise, signature, targetName } from '../src/runtime/post'
+import { mergeHeaders, serialise, signature, targetName } from '../src/runtime/server/core/post'
 
 describe('serialise', () => {
   it('turns a plain object into json and says so', () => {

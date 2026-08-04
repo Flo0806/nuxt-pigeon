@@ -1,5 +1,5 @@
 import { createEventStream, defineEventHandler } from 'h3'
-import { addListener, ANY } from '../listeners'
+import { addListener, ANY } from '../core/listeners'
 
 /**
  * Server sent events, not a WebSocket: everything flows one way, from us to the

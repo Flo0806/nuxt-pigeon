@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createRequest, retryAfterMs } from '../src/runtime/request'
+import { createRequest, retryAfterMs } from '../src/runtime/server/core/request'
 
 /** Answers a scripted list, one entry per attempt, and records what it was asked. */
 function fake(...answers: (number | Error | { status: number; retryAfter: string })[]) {

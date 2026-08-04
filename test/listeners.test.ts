@@ -5,10 +5,10 @@ import {
   clearListeners,
   dispatch,
   listenerCount,
-  type WebhookMessage,
-} from '../src/runtime/listeners'
+} from '../src/runtime/server/core/listeners'
+import type { PigeonMessage } from '../src/runtime/types'
 
-const message: WebhookMessage = {
+const message: PigeonMessage = {
   channel: 'webhook',
   at: '2026-08-05T12:00:00.000Z',
   raw: '{"a":1}',
@@ -20,7 +20,7 @@ beforeEach(() => clearListeners())
 
 describe('addListener', () => {
   it('runs the handler on dispatch', async () => {
-    const seen: WebhookMessage[] = []
+    const seen: PigeonMessage[] = []
     addListener('webhook', (m) => seen.push(m))
 
     await dispatch('webhook', message)

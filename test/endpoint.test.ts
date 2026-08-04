@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveEndpoint } from '../src/runtime/endpoint'
+import { resolveEndpoint } from '../src/runtime/server/core/endpoint'
 
 const NONE = {}
 

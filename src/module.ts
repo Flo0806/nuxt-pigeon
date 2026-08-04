@@ -103,21 +103,27 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Hands Nitro a path, never an import. Anything imported here would run in the
     // build process, which has neither the user's .env nor their cwd.
-    addServerImports({ name: 'webhook', from: resolver.resolve('./runtime/server/webhook') })
+    addServerImports({
+      name: 'webhook',
+      from: resolver.resolve('./runtime/server/webhook/webhook'),
+    })
 
     // Always imported, even with the stream off: `nuxt prepare` runs with dev false,
     // so gating this would leave the type missing wherever it is typechecked.
     addImports({ name: 'usePigeon', from: resolver.resolve('./runtime/composables/usePigeon') })
 
     if (streaming) {
-      addServerHandler({ route: streamRoute, handler: resolver.resolve('./runtime/server/stream') })
+      addServerHandler({
+        route: streamRoute,
+        handler: resolver.resolve('./runtime/server/stream/route'),
+      })
     }
 
     if (webhook.receive) {
       addServerHandler({
         route: webhook.route || DEFAULT_ROUTE,
         method: 'post',
-        handler: resolver.resolve('./runtime/server/webhook-route'),
+        handler: resolver.resolve('./runtime/server/webhook/route'),
       })
     }
   },

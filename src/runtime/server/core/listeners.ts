@@ -1,20 +1,9 @@
+import type { PigeonMessage } from '../../types'
+
 /** Listeners registered under this name get every channel, which is what the stream needs. */
 export const ANY = '*'
 
-export interface WebhookMessage {
-  /** Which channel it came in on. */
-  channel: string
-  /** When we received it, not when the sender created it. */
-  at: string
-  /** The untouched bytes. A signature covers these, a re-serialised body does not. */
-  raw: string
-  /** Parsed when the body is JSON, otherwise the same string as `raw`. */
-  body: unknown
-  /** Lower cased keys, which is what h3 hands out. */
-  headers: Record<string, string>
-}
-
-export type WebhookHandler = (message: WebhookMessage) => unknown | Promise<unknown>
+export type WebhookHandler = (message: PigeonMessage) => unknown | Promise<unknown>
 
 /**
  * Survives HMR. Without this every reload would add another copy of the same handler
@@ -48,7 +37,7 @@ export function listenerCount(channel: string): number {
  * response for the sender: that would make the service retry a message we already
  * have. So every handler is awaited on its own and its error only reported.
  */
-export async function dispatch(channel: string, message: WebhookMessage): Promise<void> {
+export async function dispatch(channel: string, message: PigeonMessage): Promise<void> {
   const handlers = new Set([
     ...(registry().get(channel) ?? []),
     ...(channel === ANY ? [] : (registry().get(ANY) ?? [])),

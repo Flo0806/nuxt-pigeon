@@ -1,4 +1,4 @@
-import { post } from '../../../src/runtime/post'
+import { post } from '../../../src/runtime/server/core/post'
 
 /** Sends to our own route, so the whole way out and back in is visible. */
 export default defineEventHandler(async (event) => {

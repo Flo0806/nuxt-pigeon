@@ -1,7 +1,7 @@
 import { useRuntimeConfig } from '#imports'
-import { resolveEndpoint } from '../endpoint'
-import { addListener, type WebhookHandler } from '../listeners'
-import { post, type PostOptions } from '../post'
+import { resolveEndpoint } from '../core/endpoint'
+import { addListener, type WebhookHandler } from '../core/listeners'
+import { post, type PostOptions } from '../core/post'
 
 export interface WebhookSendOptions extends PostOptions {
   /** Name of a configured endpoint. Without one the default url is used. */

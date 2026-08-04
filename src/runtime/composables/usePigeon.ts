@@ -1,6 +1,6 @@
 import { onScopeDispose, ref, shallowRef } from 'vue'
 import { useRuntimeConfig } from '#imports'
-import type { WebhookMessage } from '../listeners'
+import type { PigeonMessage } from '../types'
 
 export interface UsePigeonOptions {
   /** Only this channel. Without it every channel arrives. */
@@ -17,7 +17,7 @@ export interface UsePigeonOptions {
  * starts out empty instead of hanging on a stream that never ends.
  */
 export function usePigeon(options: UsePigeonOptions = {}) {
-  const messages = shallowRef<WebhookMessage[]>([])
+  const messages = shallowRef<PigeonMessage[]>([])
   const connected = ref(false)
   const limit = options.limit ?? 50
 
@@ -40,7 +40,7 @@ export function usePigeon(options: UsePigeonOptions = {}) {
     source.onerror = () => (connected.value = false)
 
     source.onmessage = (payload: MessageEvent<string>) => {
-      const message = JSON.parse(payload.data) as WebhookMessage
+      const message = JSON.parse(payload.data) as PigeonMessage
       if (options.channel && message.channel !== options.channel) {
         return
       }
