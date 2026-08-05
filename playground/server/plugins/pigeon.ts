@@ -16,6 +16,7 @@ export default defineNitroPlugin((nitro) => {
     telegram.listen(keep),
     slack.listen(keep),
     mastodon.listen(keep),
+    bluesky.listen(keep),
   ]
 
   nitro.hooks.hook('close', () => stops.forEach((stop) => stop()))

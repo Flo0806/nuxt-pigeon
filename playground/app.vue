@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { countCharacters } from '../src/runtime/server/channels/mastodon/format'
+import {
+  byteLength,
+  detectRanges,
+  graphemeLength,
+} from '../src/runtime/server/channels/bluesky/format'
 
 interface Probe {
   ok: boolean
@@ -171,6 +176,31 @@ async function sendSlack() {
     })
   } finally {
     slackPending.value = false
+  }
+}
+
+const bskyText = ref('Release 1.0 ist da: https://example.com #nuxt')
+const bskyFacets = ref(true)
+const bskyPending = ref(false)
+const bskyResult = ref<{ ok: boolean; uri?: string; error?: string } | null>(null)
+
+/** Both limits apply, and neither of them is `.length`. */
+const bskyGraphemes = computed(() => graphemeLength(bskyText.value))
+const bskyBytes = computed(() => byteLength(bskyText.value))
+
+/** What would be linked, and at which byte offsets. Nothing is sent for this. */
+const bskyRanges = computed(() => detectRanges(bskyText.value))
+
+async function sendBluesky() {
+  bskyPending.value = true
+  bskyResult.value = null
+  try {
+    bskyResult.value = await $fetch('/api/bluesky', {
+      method: 'POST',
+      body: { text: bskyText.value, facets: bskyFacets.value },
+    })
+  } finally {
+    bskyPending.value = false
   }
 }
 
@@ -771,6 +801,46 @@ async function probe() {
         </p>
         <a v-if="mastoResult.url" :href="mastoResult.url" target="_blank">{{ mastoResult.url }}</a>
       </template>
+    </section>
+    <section>
+      <h2>Layer 2: bluesky</h2>
+      <p class="hint">
+        Poller is
+        <strong :class="pollers.bluesky ? 'ok' : 'fail'">
+          {{ pollers.bluesky ? 'running' : 'not running' }}</strong
+        >. Broadcast, so the verb is <code>post</code>. <strong>This goes out publicly</strong>,
+        Bluesky has no private posting.
+      </p>
+
+      <form @submit.prevent="sendBluesky">
+        <label>
+          Text
+          <textarea v-model="bskyText" rows="3" />
+        </label>
+
+        <!-- Two limits, and `.length` matches neither. -->
+        <p class="hint">
+          {{ bskyText.length }} in the string, <strong>{{ bskyGraphemes }} graphemes</strong> of
+          300, <strong>{{ bskyBytes }} bytes</strong> of 3000
+        </p>
+
+        <label class="inline">
+          <input v-model="bskyFacets" type="checkbox" />
+          Detect facets, so links, tags and mentions become clickable
+        </label>
+
+        <!-- Bluesky links nothing on its own, and the offsets are bytes. -->
+        <p v-if="bskyFacets" class="hint">Would linkify, byte ranges:</p>
+        <pre v-if="bskyFacets">{{ JSON.stringify(bskyRanges, null, 2) }}</pre>
+
+        <button type="submit" :disabled="bskyPending || !bskyText.trim()">
+          {{ bskyPending ? 'Posting...' : 'Post publicly' }}
+        </button>
+      </form>
+
+      <p v-if="bskyResult" :class="bskyResult.ok ? 'ok' : 'fail'">
+        {{ bskyResult.ok ? `Posted, ${bskyResult.uri}` : bskyResult.error }}
+      </p>
     </section>
   </main>
 </template>

@@ -14,6 +14,8 @@ export default defineNuxtConfig({
       ntfy: true,
       // token comes from PIGEON_MASTODON_TOKEN
       mastodon: { instance: 'https://mastodon.social', receive: true },
+      // identifier and app password come from PIGEON_BLUESKY_*
+      bluesky: { receive: true },
     },
     webhook: {
       // Registers POST /api/_pigeon/webhook

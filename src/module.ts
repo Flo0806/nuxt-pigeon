@@ -102,12 +102,26 @@ export interface MastodonOptions {
   intervalMs?: number
 }
 
+export interface BlueskyOptions {
+  /** Defaults to `https://bsky.social`. Your own PDS if you run one. */
+  service?: string
+  /** Falls back to `PIGEON_BLUESKY_IDENTIFIER`, the handle or email. */
+  identifier?: string
+  /**
+   * Polls for notifications. Bluesky has no webhook, so this needs a **long running
+   * process**: it does not work on serverless presets.
+   */
+  receive?: boolean
+  intervalMs?: number
+}
+
 export interface ChannelOptions {
   discord?: boolean | DiscordOptions
   telegram?: boolean | TelegramOptions
   slack?: boolean | SlackOptions
   ntfy?: boolean | NtfyOptions
   mastodon?: boolean | MastodonOptions
+  bluesky?: boolean | BlueskyOptions
 }
 
 export interface ModuleOptions {
@@ -135,6 +149,12 @@ declare module 'nuxt/schema' {
         slack: { webhookUrl: string; signingSecret: string }
         ntfy: { server: string; topic: string; token: string }
         mastodon: { instance: string; token: string; intervalMs: number }
+        bluesky: {
+          service: string
+          identifier: string
+          password: string
+          intervalMs: number
+        }
       }
     }
   }
@@ -162,6 +182,8 @@ export default defineNuxtModule<ModuleOptions>({
     const ntfyOptions = typeof ntfy === 'object' ? ntfy : {}
     const mastodon = options.channels?.mastodon
     const mastodonOptions = typeof mastodon === 'object' ? mastodon : {}
+    const bluesky = options.channels?.bluesky
+    const blueskyOptions = typeof bluesky === 'object' ? bluesky : {}
     const streamRoute = options.stream?.route || DEFAULT_STREAM_ROUTE
     const streaming = options.stream?.enabled ?? nuxt.options.dev
 
@@ -194,6 +216,13 @@ export default defineNuxtModule<ModuleOptions>({
           instance: mastodonOptions.instance || '',
           token: '',
           intervalMs: mastodonOptions.intervalMs ?? DEFAULT_POLL_MS,
+        },
+        bluesky: {
+          service: blueskyOptions.service || '',
+          identifier: blueskyOptions.identifier || '',
+          // The app password never belongs in a config file, only the placeholder.
+          password: '',
+          intervalMs: blueskyOptions.intervalMs ?? DEFAULT_POLL_MS,
         },
       },
     }
@@ -302,6 +331,26 @@ export default defineNuxtModule<ModuleOptions>({
         if (preset && SERVERLESS_PRESET.test(preset)) {
           logger.warn(
             `mastodon can only be polled, and preset "${preset}" has no long running ` +
+              'process. Nothing will be received there.',
+          )
+        }
+      }
+    }
+
+    if (bluesky) {
+      addServerImports({
+        name: 'bluesky',
+        from: resolver.resolve('./runtime/server/channels/bluesky/bluesky'),
+      })
+      logger.info('bluesky posts publicly, it uses post() not send()')
+
+      if (blueskyOptions.receive) {
+        addServerPlugin(resolver.resolve('./runtime/server/channels/bluesky/plugin'))
+
+        const preset = nuxt.options.nitro.preset
+        if (preset && SERVERLESS_PRESET.test(preset)) {
+          logger.warn(
+            `bluesky can only be polled, and preset "${preset}" has no long running ` +
               'process. Nothing will be received there.',
           )
         }
