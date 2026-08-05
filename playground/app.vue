@@ -293,11 +293,25 @@ const mastoCount = computed(() =>
   countCharacters(mastoText.value, { maxCharacters: 500, charactersReservedPerUrl: 23 }),
 )
 
+/** The handle from the last post: the status id and the files on it. */
+const mastoSent = ref<{ id: string; mediaIds: string[] } | null>(null)
+const mastoEditText = ref('Release 1.0 ist da, jetzt mit Tippfehler weniger')
+const mastoEditMediaUrl = ref('')
+const mastoKeepImages = ref(true)
+const mastoRedraft = ref('')
+
+function keepMasto(answer: { ok: boolean; id?: string; mediaIds?: string[] }) {
+  mastoSent.value =
+    answer.ok && answer.id ? { id: answer.id, mediaIds: answer.mediaIds ?? [] } : null
+}
+
 async function sendMastodon() {
   mastoPending.value = true
   mastoResult.value = null
+  mastoSent.value = null
+  mastoRedraft.value = ''
   try {
-    mastoResult.value = await $fetch('/api/mastodon', {
+    const answer = await $fetch('/api/mastodon', {
       method: 'POST',
       body: {
         text: mastoText.value,
@@ -306,6 +320,39 @@ async function sendMastodon() {
         mediaUrl: mastoMediaUrl.value,
       },
     })
+
+    mastoResult.value = answer
+    keepMasto(answer)
+  } finally {
+    mastoPending.value = false
+  }
+}
+
+async function changeMastodon(action: 'edit' | 'delete') {
+  if (!mastoSent.value) return
+
+  mastoPending.value = true
+  try {
+    const answer = await $fetch('/api/mastodon-edit', {
+      method: 'POST',
+      body: {
+        action,
+        id: mastoSent.value.id,
+        mediaIds: mastoSent.value.mediaIds,
+        text: mastoEditText.value,
+        mediaUrl: mastoEditMediaUrl.value,
+        keepImages: mastoKeepImages.value,
+      },
+    })
+
+    mastoResult.value = answer
+    if (action === 'delete') {
+      mastoSent.value = null
+      // Mastodon hands the plain text back so a client can offer a redraft.
+      mastoRedraft.value = ('redraft' in answer && answer.redraft) || ''
+    } else {
+      keepMasto(answer)
+    }
   } finally {
     mastoPending.value = false
   }
@@ -1053,6 +1100,47 @@ async function probe() {
           {{ mastoResult.ok ? 'Posted' : mastoResult.error }}
         </p>
         <a v-if="mastoResult.url" :href="mastoResult.url" target="_blank">{{ mastoResult.url }}</a>
+      </template>
+
+      <template v-if="mastoSent">
+        <h3>Change it again</h3>
+        <p class="hint">
+          Status <code>{{ mastoSent.id }}</code
+          >, {{ mastoSent.mediaIds.length }} attachment(s). Everyone sees that it was changed:
+          Mastodon keeps a version history and clients show an <strong>edited</strong> marker.
+        </p>
+
+        <label>
+          New text
+          <input v-model="mastoEditText" />
+        </label>
+
+        <label>
+          Add another image, optional
+          <input v-model="mastoEditMediaUrl" placeholder="https://…/second.png" />
+        </label>
+
+        <label class="inline">
+          <input v-model="mastoKeepImages" type="checkbox" />
+          Keep the images that are on it. Off detaches them
+        </label>
+
+        <div class="row">
+          <button type="button" :disabled="mastoPending" @click="changeMastodon('edit')">
+            {{ mastoPending ? 'Working...' : 'Edit it' }}
+          </button>
+          <button type="button" :disabled="mastoPending" @click="changeMastodon('delete')">
+            Delete it
+          </button>
+        </div>
+      </template>
+
+      <template v-if="mastoRedraft">
+        <p class="hint">
+          Deleted, and Mastodon handed the plain text back. That is what clients use for their
+          delete and redraft, and it is the reason this is not just a 204:
+        </p>
+        <pre>{{ mastoRedraft }}</pre>
       </template>
     </section>
     <section>

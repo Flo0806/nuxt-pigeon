@@ -11,9 +11,11 @@ import {
   pageIds,
   type MastodonLimits,
 } from './format'
-import { toResult } from '../../core/result'
+import { toResult, type RawResponse } from '../../core/result'
 import { assertAttachmentCount, uploadMedia } from './media'
 import type {
+  MastodonEditOptions,
+  MastodonHandle,
   MastodonNotification,
   MastodonNotificationOptions,
   MastodonPostOptions,
@@ -147,6 +149,10 @@ async function post(
     },
   )
 
+  return result(instance, response)
+}
+
+function result(instance: string, response: RawResponse<MastodonStatus>): MastodonResult {
   return {
     ...toResult('mastodon', response),
     channel: 'mastodon',
@@ -154,7 +160,100 @@ async function post(
     // Mastodon hands out the permalink itself, no need to build one.
     url: response._data?.url,
     instance,
-  } satisfies MastodonResult
+    mediaIds: response._data?.media_attachments?.map((file) => file.id),
+  }
+}
+
+function statusId(handle: MastodonHandle): string {
+  if (!handle.id) {
+    throw new Error(
+      'This Mastodon status has no id, so it cannot be changed or removed. ' +
+        'Pass the result of `post`, or a handle with an `id`',
+    )
+  }
+
+  return handle.id
+}
+
+/**
+ * Changes a status that is already out. Mastodon keeps a version history and clients
+ * show an "edited" marker, so this is visible to everyone, it is not a quiet fix.
+ *
+ * The files follow the same rule as everywhere here, and it happens to be Mastodon's
+ * own: leaving `media` out keeps them, because the update only touches attachments
+ * when `media_ids` is present (`update_status_service.rb`). An empty array detaches
+ * them, and new files are **added** to the ones already there.
+ *
+ * https://docs.joinmastodon.org/methods/statuses/#edit
+ */
+async function edit(
+  handle: MastodonHandle,
+  text: string,
+  options: MastodonEditOptions & RequestOptions = {},
+) {
+  const { instance, token } = credentials()
+  const known = await limits(instance)
+  const id = statusId(handle)
+
+  assertWithinLimit(text, known)
+
+  let mediaIds: string[] | undefined
+  if (options.media?.length) {
+    const keep = handle.mediaIds ?? []
+    assertAttachmentCount(keep.length + options.media.length, known)
+
+    mediaIds = [...keep]
+    for (const item of options.media) {
+      mediaIds.push(await uploadMedia(instance, token, item, known, options))
+    }
+  } else if (options.media) {
+    // An empty array is the one way to say away with them, and it has to travel as
+    // an empty list rather than not at all.
+    mediaIds = []
+  }
+
+  const response = await createRequest(options).raw<MastodonStatus>(
+    new URL(`/api/v1/statuses/${id}`, instance).toString(),
+    {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}` },
+      body: {
+        status: text,
+        spoiler_text: options.spoilerText,
+        sensitive: options.sensitive,
+        language: options.language,
+        media_ids: mediaIds,
+      },
+    },
+  )
+
+  return result(instance, response)
+}
+
+/**
+ * Gone from the timeline. Mastodon answers with the **deleted status**, including its
+ * plain `text`, which is what clients use for their delete and redraft.
+ *
+ * Its attachments are kept for about 24 hours so they can go into a new post, unless
+ * `deleteMedia` says otherwise.
+ */
+async function remove(
+  handle: MastodonHandle,
+  options: RequestOptions & { deleteMedia?: boolean } = {},
+) {
+  const { instance, token } = credentials()
+  const url = new URL(`/api/v1/statuses/${statusId(handle)}`, instance)
+
+  if (options.deleteMedia) {
+    url.searchParams.set('delete_media', 'true')
+  }
+
+  const response = await createRequest(options).raw<MastodonStatus>(url.toString(), {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  return result(instance, response)
 }
 
 /**
@@ -206,4 +305,4 @@ function listen(handler: Handler<MastodonNotification>): () => void {
   return addListener('mastodon', handler)
 }
 
-export const mastodon = { post, listen, notifications }
+export const mastodon = { post, edit, delete: remove, listen, notifications }

@@ -16,7 +16,13 @@ export default defineEventHandler(async (event) => {
       media: mediaUrl ? [{ url: mediaUrl, alt: 'Vom Playground geschickt' }] : undefined,
     })
 
-    return { ok: true as const, url: status.url }
+    return {
+      ok: true as const,
+      url: status.url,
+      // The handle, so the page can change this exact status afterwards.
+      id: status.id,
+      mediaIds: status.mediaIds,
+    }
   } catch (error) {
     return { ok: false as const, error: (error as Error).message }
   }

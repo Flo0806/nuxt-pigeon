@@ -6,11 +6,36 @@ export type MastodonVisibility = 'public' | 'unlisted' | 'private' | 'direct'
 import type { Media } from '../../core/media'
 import type { PigeonResult } from '../../core/result'
 
-export interface MastodonResult extends PigeonResult<MastodonStatus | undefined> {
+/**
+ * All that is needed to point at a status again. The instance is deliberately **not**
+ * part of it: the token belongs to one instance, so editing somewhere else could not
+ * work anyway, and the host comes from the config just like when sending.
+ */
+export interface MastodonHandle {
+  id?: string
+  /**
+   * Ids of the files on the status. Kept as our own field rather than read back out of
+   * `raw`, so editing never has to dig through what the service sent.
+   */
+  mediaIds?: string[]
+}
+
+export interface MastodonResult extends PigeonResult<MastodonStatus | undefined>, MastodonHandle {
   channel: 'mastodon'
-  /** Which instance it went to, so editing or deleting hits the right host. */
+  /** Which instance it went to. Information, not a handle: see `MastodonHandle`. */
   instance: string
 }
+
+/**
+ * Mastodon takes a smaller set on `PUT` than on the first post, and the ones left out
+ * are exactly the ones that only mean something while a post is being created.
+ *
+ * https://docs.joinmastodon.org/methods/statuses/#edit
+ */
+export type MastodonEditOptions = Omit<
+  MastodonPostOptions,
+  'visibility' | 'inReplyToId' | 'scheduledAt' | 'idempotencyKey'
+>
 
 export interface MastodonPostOptions {
   /**
@@ -53,6 +78,9 @@ export interface MastodonStatus {
   visibility?: MastodonVisibility
   spoiler_text?: string
   account?: MastodonAccount
+  media_attachments?: { id: string; type?: string; url?: string }[]
+  /** Set once a status has been changed, and clients show an "edited" marker for it. */
+  edited_at?: string
   [key: string]: unknown
 }
 
