@@ -71,3 +71,35 @@ describe('attach', () => {
     expect(JSON.parse(String(form.get('payload_json'))).embeds).toEqual(embeds)
   })
 })
+
+describe('attach when editing', () => {
+  it('keeps the ids already on the message in front of the new files', async () => {
+    // Discord drops every attachment the array does not name, so a retained file has
+    // to be listed again even though nothing about it changed.
+    const form = await attach(
+      { content: 'neu' },
+      [{ data: PNG, filename: 'b.png' }],
+      {},
+      undefined,
+      [{ id: '111' }, { id: '222' }],
+    )
+
+    const meta = JSON.parse(String(form.get('payload_json'))).attachments
+
+    expect(meta).toEqual([
+      { id: '111' },
+      { id: '222' },
+      { id: 0, filename: 'b.png', description: undefined },
+    ])
+  })
+
+  it('counts the retained files against the limit of ten', async () => {
+    const retained = Array.from({ length: 9 }, (_, i) => ({ id: String(i) }))
+    const media = [
+      { data: PNG, filename: 'a.png' },
+      { data: PNG, filename: 'b.png' },
+    ]
+
+    await expect(attach({}, media, {}, undefined, retained)).rejects.toThrow('got 11')
+  })
+})

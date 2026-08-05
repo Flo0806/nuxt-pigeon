@@ -23,7 +23,13 @@ const SECRET_PREFIX = 'whsec_'
  * JSON. ofetch would label a string as `application/json`, which lies about a plain
  * text body, so the type is decided here instead.
  */
-export function serialise(payload: unknown): { body: BodyInit; contentType?: string } {
+export function serialise(payload: unknown): { body?: BodyInit; contentType?: string } {
+  // A DELETE has nothing to say. Announcing a json body and then sending none would
+  // be a small lie, and some receivers reject it.
+  if (payload === undefined) {
+    return {}
+  }
+
   if (typeof payload === 'string') {
     return { body: payload, contentType: 'text/plain;charset=UTF-8' }
   }

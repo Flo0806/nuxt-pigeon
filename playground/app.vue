@@ -151,11 +151,18 @@ const discordEmbed = ref(false)
 const discordPending = ref(false)
 const discordResult = ref<Sent | null>(null)
 
+/** The handle from the last send, which is all editing and deleting need. */
+const discordSent = ref<{ id: string; attachmentIds: string[] } | null>(null)
+const discordEditText = ref('Deploy fixed')
+const discordEditMediaUrl = ref('')
+const discordKeepImage = ref(true)
+
 async function sendDiscord() {
   discordPending.value = true
   discordResult.value = null
+  discordSent.value = null
   try {
-    discordResult.value = await $fetch('/api/discord', {
+    const answer = await $fetch('/api/discord', {
       method: 'POST',
       body: {
         text: discordText.value,
@@ -166,6 +173,40 @@ async function sendDiscord() {
         withEmbed: discordEmbed.value,
       },
     })
+
+    discordResult.value = answer
+    if (answer.ok && answer.id) {
+      discordSent.value = { id: answer.id, attachmentIds: answer.attachmentIds ?? [] }
+    }
+  } finally {
+    discordPending.value = false
+  }
+}
+
+async function changeDiscord(action: 'edit' | 'delete') {
+  if (!discordSent.value) return
+
+  discordPending.value = true
+  try {
+    const answer = await $fetch('/api/discord-edit', {
+      method: 'POST',
+      body: {
+        action,
+        id: discordSent.value.id,
+        attachmentIds: discordSent.value.attachmentIds,
+        text: discordEditText.value,
+        mediaUrl: discordEditMediaUrl.value,
+        keepImage: discordKeepImage.value,
+      },
+    })
+
+    discordResult.value = answer
+    if (action === 'delete') {
+      // Gone means there is nothing left to point at.
+      discordSent.value = null
+    } else if (answer.ok && 'id' in answer && answer.id) {
+      discordSent.value = { id: answer.id, attachmentIds: answer.attachmentIds ?? [] }
+    }
   } finally {
     discordPending.value = false
   }
@@ -642,6 +683,39 @@ async function probe() {
         <!-- What Discord stored, so escaping is visible rather than claimed. -->
         <pre v-if="discordResult.sent">{{ discordResult.sent }}</pre>
       </template>
+
+      <template v-if="discordSent">
+        <h3>Change it again</h3>
+        <p class="hint">
+          The result of <code>send</code> is the handle: id <code>{{ discordSent.id }}</code
+          >, {{ discordSent.attachmentIds.length }} attachment(s). Editing keeps them unless you say
+          otherwise, because Discord would silently drop every file the request does not name.
+        </p>
+
+        <label>
+          New text
+          <input v-model="discordEditText" />
+        </label>
+
+        <label>
+          Add another image, optional
+          <input v-model="discordEditMediaUrl" placeholder="https://…/second.png" />
+        </label>
+
+        <label class="inline">
+          <input v-model="discordKeepImage" type="checkbox" />
+          Keep the images that are on it. Off means the message loses them
+        </label>
+
+        <div class="row">
+          <button type="button" :disabled="discordPending" @click="changeDiscord('edit')">
+            {{ discordPending ? 'Working...' : 'Edit it' }}
+          </button>
+          <button type="button" :disabled="discordPending" @click="changeDiscord('delete')">
+            Delete it
+          </button>
+        </div>
+      </template>
     </section>
     <section>
       <h2>Layer 2: telegram, receiving</h2>
@@ -1034,6 +1108,11 @@ button {
   margin: 0;
   font-size: 0.85rem;
   color: #666;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .ok {

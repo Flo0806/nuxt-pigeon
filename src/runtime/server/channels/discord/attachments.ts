@@ -26,13 +26,18 @@ export async function attach(
   media: DiscordMedia[],
   options: RequestOptions = {},
   fetch?: typeof globalThis.fetch,
+  retained: unknown[] = [],
 ): Promise<FormData> {
-  if (media.length > MAX_FILES) {
-    throw new Error(`Discord takes at most ${MAX_FILES} files, got ${media.length}`)
+  const total = media.length + retained.length
+
+  if (total > MAX_FILES) {
+    throw new Error(`Discord takes at most ${MAX_FILES} files, got ${total}`)
   }
 
   const form = new FormData()
-  const meta: { id: number; filename: string; description?: string }[] = []
+  // Only used when editing: an entry already on the message keeps that file, the
+  // numeric ones below point at a `files[n]` part. What is missing here, Discord drops.
+  const meta: unknown[] = [...retained]
 
   for (const [index, item] of media.entries()) {
     const resolved = await resolveMedia(item, options, fetch)

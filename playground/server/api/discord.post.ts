@@ -31,7 +31,13 @@ export default defineEventHandler(async (event) => {
       embeds,
     })
 
-    return { ok: true as const, sent: message.raw?.content, id: message.id }
+    return {
+      ok: true as const,
+      sent: message.raw?.content,
+      id: message.id,
+      // Handed back so the page can edit or delete this exact message afterwards.
+      attachmentIds: message.attachmentIds,
+    }
   } catch (error) {
     return { ok: false as const, error: (error as Error).message }
   }

@@ -9,6 +9,12 @@ describe('serialise', () => {
     })
   })
 
+  it('sends nothing at all for an undefined payload, which is what a DELETE is', () => {
+    // Announcing a json body and then sending none is a small lie, and some
+    // receivers reject it outright.
+    expect(serialise(undefined)).toEqual({})
+  })
+
   it('sends a string as text, not as json', () => {
     // ofetch would label this application/json, which lies about a plain text body.
     expect(serialise('hi')).toEqual({ body: 'hi', contentType: 'text/plain;charset=UTF-8' })

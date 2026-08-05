@@ -44,6 +44,7 @@ export interface DiscordMessage {
   id: string
   channel_id?: string
   content?: string
+  attachments?: { id: string; filename?: string }[]
   [key: string]: unknown
 }
 
@@ -53,6 +54,31 @@ export interface DiscordResult extends PigeonResult<DiscordMessage | undefined> 
   id?: string
   /** Only known here, never in the answer, and needed to edit or delete again. */
   threadId?: string
+  /**
+   * Ids of the files currently on the message. Kept as our own field rather than read
+   * back out of `raw`, so editing never has to dig around in what the service sent.
+   *
+   * An edit has to name every attachment that should survive it, see `edit`.
+   */
+  attachmentIds?: string[]
+}
+
+/**
+ * Discord allows a smaller set on `PATCH` than on the first send. Left out because the
+ * message is already there and they cannot change any more: `username`, `avatarUrl`,
+ * `tts`, `threadName`, `appliedTags`, and `wait`, which an edit always does.
+ *
+ * https://docs.discord.com/developers/resources/webhook#edit-webhook-message
+ */
+export type DiscordEditOptions = Omit<
+  DiscordSendOptions,
+  'username' | 'avatarUrl' | 'tts' | 'threadName' | 'appliedTags' | 'wait'
+> & {
+  /**
+   * The raw `attachments` array, for taking the wheel yourself. Set this and the
+   * handling described on `edit` steps aside completely.
+   */
+  attachments?: unknown[]
 }
 
 export interface DiscordSendOptions {
