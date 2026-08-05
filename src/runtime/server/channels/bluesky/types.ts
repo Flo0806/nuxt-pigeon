@@ -1,3 +1,5 @@
+import type { Media } from '../../core/media'
+
 /** Documented at https://docs.bsky.app/docs/advanced-guides/post-richtext */
 
 /** **UTF-8 byte** offsets, not character positions. */
@@ -17,6 +19,18 @@ export interface BlueskyFacet {
 }
 
 export interface BlueskyPostOptions {
+  /**
+   * Up to four images, and **never a url**: a blob is uploaded separately and the post
+   * references it. The limit per blob is about **1 MB**, which a normal screenshot
+   * exceeds, so expect to resize before sending.
+   */
+  media?: Media[]
+  /**
+   * A link card. Bluesky builds **nothing** by itself, so title, description and the
+   * thumbnail all come from here. Cannot be combined with `media`, a post carries one
+   * embed.
+   */
+  external?: { uri: string; title: string; description: string; thumb?: Media }
   /**
    * Detected by default, because Bluesky links **nothing** on its own and every
    * client computes this before posting. `false` leaves the post unlinked.

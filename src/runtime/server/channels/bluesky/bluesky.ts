@@ -2,6 +2,7 @@ import { useRuntimeConfig } from '#imports'
 import { addListener, type Handler } from '../../core/listeners'
 import { createRequest, type RequestOptions } from '../../core/request'
 import { assertWithinLimit, detectRanges } from './format'
+import { assertImageCount, externalEmbed, imagesEmbed, uploadBlob } from './media'
 import { withSession, type Session } from './session'
 import type {
   BlueskyFacet,
@@ -124,6 +125,69 @@ async function buildFacets(service: string, text: string): Promise<BlueskyFacet[
   return facets
 }
 
+/**
+ * Bluesky builds the embed from what it is given and nothing else. Images and a link
+ * card are the same slot, so only one of them can be there.
+ */
+async function buildEmbed(
+  service: string,
+  session: Session,
+  options: BlueskyPostOptions & RequestOptions,
+) {
+  // A post carries exactly one embed, so both cannot go. Refusing the whole post
+  // would be worse than sending a slightly reduced one, but it must never happen
+  // quietly: the caller asked for something the format cannot hold and has to hear it.
+  if (options.media?.length && options.external) {
+    const [first] = options.media
+
+    if (!options.external.thumb && first) {
+      console.warn(
+        '[nuxt-pigeon] bluesky: a post carries one embed, so the link card wins. ' +
+          `Your first image became its thumbnail${options.media.length > 1 ? `, the other ${options.media.length - 1} were dropped` : ''}.`,
+      )
+
+      return buildEmbed(service, session, {
+        ...options,
+        media: undefined,
+        external: { ...options.external, thumb: first },
+      })
+    }
+
+    console.warn(
+      `[nuxt-pigeon] bluesky: dropped ${options.media.length} image(s). A post carries one ` +
+        'embed, and the link card already has a thumbnail.',
+    )
+
+    return buildEmbed(service, session, { ...options, media: undefined })
+  }
+
+  if (options.media?.length) {
+    assertImageCount(options.media.length)
+
+    const images = []
+    for (const item of options.media) {
+      images.push({
+        image: await uploadBlob(service, session.accessJwt, item, options),
+        // Required by the lexicon, so an empty string beats leaving it out.
+        alt: ('alt' in item && item.alt) || '',
+      })
+    }
+
+    return imagesEmbed(images)
+  }
+
+  if (options.external) {
+    const { thumb, ...card } = options.external
+
+    return externalEmbed({
+      ...card,
+      thumb: thumb ? await uploadBlob(service, session.accessJwt, thumb, options) : undefined,
+    })
+  }
+
+  return undefined
+}
+
 /** Public, so this lands in your feed where everyone can read it. */
 async function post(text: string, options: BlueskyPostOptions & RequestOptions = {}) {
   const { service, identifier, password } = credentials()
@@ -133,7 +197,7 @@ async function post(text: string, options: BlueskyPostOptions & RequestOptions =
   const facets =
     options.facets === false ? undefined : (options.facets ?? (await buildFacets(service, text)))
 
-  return withSession(service, identifier, password, (session) =>
+  return withSession(service, identifier, password, async (session) =>
     procedure<{ uri: string; cid: string }>(service, 'com.atproto.repo.createRecord', session, {
       repo: session.did,
       collection: 'app.bsky.feed.post',
@@ -143,6 +207,7 @@ async function post(text: string, options: BlueskyPostOptions & RequestOptions =
         createdAt: options.createdAt ?? new Date().toISOString(),
         langs: options.langs,
         facets: facets?.length ? facets : undefined,
+        embed: await buildEmbed(service, session, options),
       },
     }),
   )

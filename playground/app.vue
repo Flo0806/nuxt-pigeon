@@ -192,6 +192,11 @@ async function sendSlack() {
 
 const bskyText = ref('Release 1.0 ist da: https://example.com #nuxt')
 const bskyFacets = ref(true)
+const bskyMediaUrl = ref('')
+const bskyAlt = ref('Ein Screenshot')
+const bskyCardUrl = ref('')
+const bskyCardTitle = ref('nuxt-pigeon')
+const bskyCardDescription = ref('Nothing here is read from the linked page.')
 const bskyPending = ref(false)
 const bskyResult = ref<{ ok: boolean; uri?: string; error?: string } | null>(null)
 
@@ -208,7 +213,15 @@ async function sendBluesky() {
   try {
     bskyResult.value = await $fetch('/api/bluesky', {
       method: 'POST',
-      body: { text: bskyText.value, facets: bskyFacets.value },
+      body: {
+        text: bskyText.value,
+        facets: bskyFacets.value,
+        mediaUrl: bskyMediaUrl.value,
+        alt: bskyAlt.value,
+        cardUrl: bskyCardUrl.value,
+        cardTitle: bskyCardTitle.value,
+        cardDescription: bskyCardDescription.value,
+      },
     })
   } finally {
     bskyPending.value = false
@@ -899,6 +912,46 @@ async function probe() {
         <!-- Bluesky links nothing on its own, and the offsets are bytes. -->
         <p v-if="bskyFacets" class="hint">Would linkify, byte ranges:</p>
         <pre v-if="bskyFacets">{{ JSON.stringify(bskyRanges, null, 2) }}</pre>
+
+        <label>
+          Image url, empty posts text only
+          <input v-model="bskyMediaUrl" placeholder="https://…/something.png" />
+        </label>
+
+        <label>
+          Alt text
+          <input v-model="bskyAlt" />
+        </label>
+
+        <label>
+          Link card for this address, empty attaches the image on its own
+          <input v-model="bskyCardUrl" placeholder="https://nuxt.fyi" />
+        </label>
+
+        <template v-if="bskyCardUrl">
+          <label>
+            Card title
+            <input v-model="bskyCardTitle" />
+          </label>
+
+          <label>
+            Card description
+            <input v-model="bskyCardDescription" />
+          </label>
+
+          <!-- The point of the two fields above. -->
+          <p class="hint">
+            Change these and look at the post: the card shows exactly what you typed. Bluesky reads
+            <strong>nothing</strong> from the linked page.
+          </p>
+        </template>
+
+        <p class="hint">
+          Bluesky takes <strong>no url</strong>, both are uploaded as a blob first, and a blob may
+          be <strong>about 1 MB</strong>. Give an image and a card together and the channel decides,
+          and <strong>says so in the server log</strong>: one embed per post, so the card wins and
+          your image becomes its thumbnail.
+        </p>
 
         <button type="submit" :disabled="bskyPending || !bskyText.trim()">
           {{ bskyPending ? 'Posting...' : 'Post publicly' }}

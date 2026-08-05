@@ -1,8 +1,29 @@
 export default defineEventHandler(async (event) => {
-  const { text, facets } = await readBody<{ text: string; facets: boolean }>(event)
+  const { text, facets, mediaUrl, alt, cardUrl, cardTitle, cardDescription } = await readBody<{
+    text: string
+    facets: boolean
+    mediaUrl: string
+    alt: string
+    cardUrl: string
+    cardTitle: string
+    cardDescription: string
+  }>(event)
 
   try {
-    const record = await bluesky.post(text, { facets: facets ? undefined : false })
+    const record = await bluesky.post(text, {
+      facets: facets ? undefined : false,
+      // Both are handed over exactly as entered. Deciding between them is the
+      // channel's job, and it says in the server log what it did.
+      media: mediaUrl ? [{ url: mediaUrl, alt: alt || undefined }] : undefined,
+      external: cardUrl
+        ? {
+            uri: cardUrl,
+            // Nothing here is read from the linked page, Bluesky builds no card itself.
+            title: cardTitle,
+            description: cardDescription,
+          }
+        : undefined,
+    })
 
     return { ok: true as const, uri: record.uri }
   } catch (error) {
