@@ -172,6 +172,42 @@ async function sendSlack() {
   }
 }
 
+interface Published {
+  ok: boolean
+  id?: string
+  error?: string
+}
+
+const ntfyText = ref('Deploy failed on main')
+const ntfyTitle = ref('nuxt-pigeon')
+const ntfyPriority = ref(0)
+const ntfyTags = ref('warning')
+const ntfyClick = ref('')
+const ntfyPending = ref(false)
+const ntfyResult = ref<Published | null>(null)
+
+/** The limit is in bytes, so this is what actually counts against 4096. */
+const ntfyBytes = computed(() => new TextEncoder().encode(ntfyText.value).length)
+
+async function sendNtfy() {
+  ntfyPending.value = true
+  ntfyResult.value = null
+  try {
+    ntfyResult.value = await $fetch('/api/ntfy', {
+      method: 'POST',
+      body: {
+        text: ntfyText.value,
+        title: ntfyTitle.value,
+        priority: ntfyPriority.value,
+        tags: ntfyTags.value,
+        click: ntfyClick.value,
+      },
+    })
+  } finally {
+    ntfyPending.value = false
+  }
+}
+
 const tgText = ref('<b>Deploy failed</b> on main')
 const tgParseMode = ref('HTML')
 const tgEscape = ref(false)
@@ -583,6 +619,59 @@ async function probe() {
 
       <p v-if="slackResult" :class="slackResult.ok ? 'ok' : 'fail'">
         {{ slackResult.ok ? 'Slack accepted it, look in your channel' : slackResult.error }}
+      </p>
+    </section>
+    <section>
+      <h2>Layer 2: ntfy</h2>
+      <p class="hint">
+        Third counting method in the module: ntfy counts <strong>bytes</strong>, not characters. An
+        umlaut costs two, an emoji four. Published as JSON rather than through the
+        <code>X-Title</code> headers ntfy also offers, because headers are ASCII only and an umlaut
+        in a title would have to be encoded.
+      </p>
+
+      <form @submit.prevent="sendNtfy">
+        <label>
+          Text
+          <textarea v-model="ntfyText" rows="2" />
+        </label>
+
+        <p class="hint">
+          {{ ntfyText.length }} characters, <strong>{{ ntfyBytes }} bytes</strong> of 4096
+        </p>
+
+        <label>
+          Title
+          <input v-model="ntfyTitle" />
+        </label>
+
+        <label>
+          Priority
+          <select v-model.number="ntfyPriority">
+            <option :value="0">default (3)</option>
+            <option :value="1">1 min, silent</option>
+            <option :value="4">4 high</option>
+            <option :value="5">5 max, rings through do-not-disturb</option>
+          </select>
+        </label>
+
+        <label>
+          Tags, comma separated
+          <input v-model="ntfyTags" placeholder="warning, skull, rocket" />
+        </label>
+
+        <label>
+          Click url
+          <input v-model="ntfyClick" placeholder="optional, opened when tapped" />
+        </label>
+
+        <button type="submit" :disabled="ntfyPending || !ntfyText.trim()">
+          {{ ntfyPending ? 'Publishing...' : 'Publish to ntfy' }}
+        </button>
+      </form>
+
+      <p v-if="ntfyResult" :class="ntfyResult.ok ? 'ok' : 'fail'">
+        {{ ntfyResult.ok ? `Published, id ${ntfyResult.id}` : ntfyResult.error }}
       </p>
     </section>
   </main>

@@ -10,6 +10,8 @@ export default defineNuxtConfig({
       telegram: { receive: true },
       // url comes from PIGEON_SLACK_WEBHOOK_URL
       slack: { receive: true },
+      // server defaults to ntfy.sh, topic comes from PIGEON_NTFY_TOPIC
+      ntfy: true,
     },
     webhook: {
       // Registers POST /api/_pigeon/webhook

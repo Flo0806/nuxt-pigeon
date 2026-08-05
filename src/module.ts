@@ -75,10 +75,19 @@ export interface SlackOptions {
   route?: string
 }
 
+export interface NtfyOptions {
+  /** Defaults to `https://ntfy.sh`. Point it at your own instance if you run one. */
+  server?: string
+  /** Falls back to `PIGEON_NTFY_TOPIC`. **A public topic is readable by anyone who
+   * knows its name**, so pick something unguessable or protect it with a token. */
+  topic?: string
+}
+
 export interface ChannelOptions {
   discord?: boolean | DiscordOptions
   telegram?: boolean | TelegramOptions
   slack?: boolean | SlackOptions
+  ntfy?: boolean | NtfyOptions
 }
 
 export interface ModuleOptions {
@@ -104,6 +113,7 @@ declare module 'nuxt/schema' {
         discord: { webhookUrl: string }
         telegram: { token: string; chatId: string; secretToken: string; route: string }
         slack: { webhookUrl: string; signingSecret: string }
+        ntfy: { server: string; topic: string; token: string }
       }
     }
   }
@@ -127,6 +137,8 @@ export default defineNuxtModule<ModuleOptions>({
     const slack = options.channels?.slack
     const slackOptions = typeof slack === 'object' ? slack : {}
     const slackRoute = slackOptions.route || DEFAULT_SLACK_ROUTE
+    const ntfy = options.channels?.ntfy
+    const ntfyOptions = typeof ntfy === 'object' ? ntfy : {}
     const streamRoute = options.stream?.route || DEFAULT_STREAM_ROUTE
     const streaming = options.stream?.enabled ?? nuxt.options.dev
 
@@ -154,6 +166,7 @@ export default defineNuxtModule<ModuleOptions>({
           route: telegramRoute,
         },
         slack: { webhookUrl: slackOptions.webhookUrl || '', signingSecret: '' },
+        ntfy: { server: ntfyOptions.server || '', topic: ntfyOptions.topic || '', token: '' },
       },
     }
 
@@ -238,6 +251,13 @@ export default defineNuxtModule<ModuleOptions>({
           )
         }
       }
+    }
+
+    if (ntfy) {
+      addServerImports({
+        name: 'ntfy',
+        from: resolver.resolve('./runtime/server/channels/ntfy/ntfy'),
+      })
     }
 
     if (webhook.receive) {
