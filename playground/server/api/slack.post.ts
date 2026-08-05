@@ -1,10 +1,11 @@
 export default defineEventHandler(async (event) => {
-  const { text, mrkdwn, escape, channelId, threadTs } = await readBody<{
+  const { text, mrkdwn, escape, channelId, threadTs, mediaUrl } = await readBody<{
     text: string
     mrkdwn: boolean
     escape: boolean
     channelId: string
     threadTs: string
+    mediaUrl: string
   }>(event)
 
   try {
@@ -13,6 +14,8 @@ export default defineEventHandler(async (event) => {
       // Empty falls back to PIGEON_SLACK_CHANNEL, which is the normal case.
       channelId: channelId || undefined,
       threadTs: threadTs || undefined,
+      // Slack takes no url, so this one is really fetched and uploaded again.
+      media: mediaUrl ? [{ url: mediaUrl }] : undefined,
     })
 
     // With a bot token there is an id and a channel, so this can be changed again.
@@ -21,6 +24,9 @@ export default defineEventHandler(async (event) => {
       ok: true as const,
       id: message.id,
       channelId: message.channelId,
+      // Set instead of `id` when the message is an upload: Slack answers those
+      // without a message timestamp.
+      fileIds: message.fileIds,
       sent: typeof message.raw === 'string' ? message.raw : undefined,
     }
   } catch (error) {

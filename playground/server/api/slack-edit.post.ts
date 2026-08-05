@@ -3,14 +3,17 @@
  * webhook answers with `ok` and nothing to point at.
  */
 export default defineEventHandler(async (event) => {
-  const { action, channelId, id, text } = await readBody<{
+  const { action, channelId, id, fileIds, text } = await readBody<{
     action: 'edit' | 'delete'
     channelId: string
     id: string
+    fileIds: string[]
     text: string
   }>(event)
 
-  const handle = { channelId, id }
+  // One of the two is set. With `fileIds` this is an upload, and `delete` then takes
+  // `files.delete` instead of `chat.delete`, while `edit` says why it cannot.
+  const handle = { channelId, id: id || undefined, fileIds }
 
   try {
     if (action === 'delete') {

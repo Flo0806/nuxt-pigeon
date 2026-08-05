@@ -6,6 +6,8 @@ import type { RequestOptions } from '../../core/request'
 import { toResult, type PigeonResult, type RawResponse } from '../../core/result'
 import { assertWithinLimit, escapeMrkdwn } from './format'
 import { assertOk, chooseMode, requireBot, type SlackCredentials } from './mode'
+import { completeBody, uploadFiles } from './upload'
+import type { Media } from '../../core/media'
 
 const API = 'https://slack.com/api'
 
@@ -34,6 +36,15 @@ export interface SlackSendOptions extends RequestOptions {
   attachments?: unknown[]
   /** Passed through untouched, for your own event metadata. */
   metadata?: unknown
+  /**
+   * Bot token only, and the bot has to be **in** the channel: `chat:write.public`
+   * covers messages but not uploads.
+   *
+   * A file is not attached to a message here, it **becomes** one, with the text as its
+   * comment. Slack does not hand back a message timestamp for it, so the result has
+   * `fileIds` instead of an `id`, and such a message cannot be edited afterwards.
+   */
+  media?: Media[]
 }
 
 /** Everything needed to point at a message again, and all `edit` and `delete` ask for. */
@@ -50,6 +61,11 @@ export interface SlackHandle {
    * sending those back would make the **old** text win over the new one.
    */
   blocks?: unknown[]
+  /**
+   * Set instead of `id` when the message is a file upload. `delete` uses these, `edit`
+   * cannot: Slack answers an upload without a message timestamp.
+   */
+  fileIds?: string[]
 }
 
 export interface SlackResult extends PigeonResult<SlackMessage | string | undefined>, SlackHandle {
@@ -126,6 +142,11 @@ async function send(text: string, options: SlackSendOptions = {}): Promise<Slack
   }
 
   const target = options.channelId || credentials.channel!
+
+  if (options.media?.length) {
+    return upload(credentials.botToken!, target, text, options)
+  }
+
   const response = await callApi<SlackMessage>(
     'chat.postMessage',
     credentials.botToken!,
@@ -150,7 +171,62 @@ async function send(text: string, options: SlackSendOptions = {}): Promise<Slack
   return result(response, { channelId: target, blocks: options.blocks })
 }
 
-function addressed(handle: SlackHandle): { channel: string; ts: string } {
+/**
+ * The file path through `send`. Reads the same from outside, works completely
+ * differently inside, and ends with one message in the channel: the picture with the
+ * text above it.
+ *
+ * What cannot be hidden is the missing timestamp. Slack answers with file ids and no
+ * `ts`, so the message has no address, and `edit` has to say so rather than pretend.
+ */
+async function upload(
+  token: string,
+  channelId: string,
+  text: string,
+  options: SlackSendOptions,
+): Promise<SlackResult> {
+  const uploads = await uploadFiles(token, options.media!, options)
+
+  const response = await post<SlackMessage>(
+    `${API}/files.completeUploadExternal`,
+    completeBody(uploads, {
+      channel_id: channelId,
+      initial_comment: text,
+      thread_ts: options.threadTs,
+      blocks: options.blocks ? JSON.stringify(options.blocks) : undefined,
+      username: options.username,
+      icon_emoji: options.iconEmoji,
+      icon_url: options.iconUrl,
+    }),
+    {
+      ...options,
+      headers: { Authorization: `Bearer ${token}` },
+      label: 'Slack files.completeUploadExternal',
+    },
+  )
+
+  assertOk('files.completeUploadExternal', response._data)
+
+  return {
+    ...toResult('slack', response),
+    channel: 'slack',
+    channelId,
+    // No id on purpose: Slack does not say which message it created.
+    id: undefined,
+    fileIds: uploads.map((file) => file.id),
+  }
+}
+
+function addressed(handle: SlackHandle, verb: string): { channel: string; ts: string } {
+  if (handle.fileIds?.length && !handle.id) {
+    throw new Error(
+      `slack cannot ${verb} a message that is a file upload. Slack answers an upload ` +
+        'with file ids and **no message timestamp**, so there is no address for ' +
+        '`chat.update`. Delete it and send again, or send the text and the file as two ' +
+        'separate messages if you need to change it later.',
+    )
+  }
+
   if (!handle.channelId || !handle.id) {
     throw new Error(
       'This Slack message has no channel or id, so it cannot be changed or removed. ' +
@@ -177,7 +253,7 @@ async function edit(
 ): Promise<SlackResult> {
   const credentials = settings()
   const token = requireBot(credentials, 'edit')
-  const { channel, ts } = addressed(handle)
+  const { channel, ts } = addressed(handle, 'edit')
 
   assertWithinLimit(text)
 
@@ -192,12 +268,32 @@ async function edit(
   return result(response, { channelId: channel, id: ts, blocks })
 }
 
-/** Bot token only, and a bot may only remove what it posted itself. */
+/**
+ * Bot token only, and a bot may only remove what it posted itself.
+ *
+ * A file upload takes the other road: it has no message timestamp, so `chat.delete`
+ * has nothing to grab. `files.delete` removes the file, and the message it created
+ * goes with it. Same verb for you, a different call underneath.
+ */
 async function remove(handle: SlackHandle, options: RequestOptions = {}): Promise<SlackResult> {
   const credentials = settings()
   const token = requireBot(credentials, 'delete')
-  const { channel, ts } = addressed(handle)
 
+  if (handle.fileIds?.length && !handle.id) {
+    let last: RawResponse<SlackMessage> | undefined
+    for (const file of handle.fileIds) {
+      last = await callApi<SlackMessage>('files.delete', token, { file }, options)
+    }
+
+    return {
+      ...toResult('slack', last!),
+      channel: 'slack',
+      channelId: handle.channelId,
+      fileIds: handle.fileIds,
+    }
+  }
+
+  const { channel, ts } = addressed(handle, 'delete')
   const response = await callApi<SlackMessage>('chat.delete', token, { channel, ts }, options)
 
   return result(response, { channelId: channel, id: ts })

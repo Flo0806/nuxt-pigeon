@@ -109,6 +109,7 @@ export async function post<Body = unknown>(
   url: string,
   payload: unknown,
   options: PostOptions = {},
+  fetch?: typeof globalThis.fetch,
 ): Promise<RawResponse<Body>> {
   const { body, contentType } = serialise(payload)
   const headers = mergeHeaders(
@@ -132,7 +133,7 @@ export async function post<Body = unknown>(
   const name = targetName(url, options.label)
 
   try {
-    return await createRequest(options).raw<Body>(url, {
+    return await createRequest(options, fetch ?? globalThis.fetch).raw<Body>(url, {
       method: options.method || 'POST',
       headers,
       body,

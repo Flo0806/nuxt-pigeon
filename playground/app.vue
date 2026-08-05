@@ -221,8 +221,10 @@ const slackResult = ref<Sent | null>(null)
 const slackChannelId = ref('')
 const slackThreadTs = ref('')
 
+const slackMediaUrl = ref('')
+
 /** Only bot mode hands one back. Through the webhook this stays null. */
-const slackSent = ref<{ channelId: string; id: string } | null>(null)
+const slackSent = ref<{ channelId: string; id?: string; fileIds: string[] } | null>(null)
 const slackEditText = ref('Deploy fixed on main')
 
 async function sendSlack() {
@@ -238,12 +240,17 @@ async function sendSlack() {
         escape: slackEscape.value,
         channelId: slackChannelId.value,
         threadTs: slackThreadTs.value,
+        mediaUrl: slackMediaUrl.value,
       },
     })
 
     slackResult.value = answer
-    if (answer.ok && answer.id && answer.channelId) {
-      slackSent.value = { channelId: answer.channelId, id: answer.id }
+    if (answer.ok && answer.channelId && (answer.id || answer.fileIds?.length)) {
+      slackSent.value = {
+        channelId: answer.channelId,
+        id: answer.id,
+        fileIds: answer.fileIds ?? [],
+      }
     }
   } finally {
     slackPending.value = false
@@ -261,6 +268,7 @@ async function changeSlack(action: 'edit' | 'delete') {
         action,
         channelId: slackSent.value.channelId,
         id: slackSent.value.id,
+        fileIds: slackSent.value.fileIds,
         text: slackEditText.value,
       },
     })
@@ -1082,6 +1090,18 @@ async function probe() {
           <input v-model="slackThreadTs" placeholder="1503435956.000247" />
         </label>
 
+        <label>
+          Image url, empty sends text only
+          <input v-model="slackMediaUrl" placeholder="https://…/something.png" />
+        </label>
+
+        <p v-if="slackMediaUrl" class="hint">
+          Slack takes <strong>no url</strong>, so this is fetched and uploaded in three steps. The
+          file <strong>becomes</strong> the message, with your text as its comment, and Slack
+          answers <strong>without a message timestamp</strong>. So this one can be deleted but
+          <strong>not edited</strong>, and you can see that below.
+        </p>
+
         <p class="hint">
           A channel <strong>id</strong>, never <code>#deploys</code>. It is at the bottom of the
           channel details, and at the end of the channel url. Uploading needs the bot in the
@@ -1099,12 +1119,20 @@ async function probe() {
 
       <template v-if="slackSent">
         <h3>Change it again</h3>
-        <p class="hint">
+        <p v-if="slackSent.id" class="hint">
           Channel <code>{{ slackSent.channelId }}</code
           >, ts <code>{{ slackSent.id }}</code
           >. The <code>ts</code> is both the id and the sort key, and it is what a thread reply
           points at. Editing sends the blocks along again, because <code>chat.update</code> drops
           them when only text arrives.
+        </p>
+
+        <p v-else class="hint">
+          Channel <code>{{ slackSent.channelId }}</code
+          >, files <code>{{ slackSent.fileIds.join(', ') }}</code
+          >, and <strong>no ts</strong>. Press <strong>Edit it</strong> to see the refusal: Slack
+          never said which message it made. <strong>Delete it</strong> works anyway, it takes
+          <code>files.delete</code> instead, and the message goes with the file.
         </p>
 
         <label>
