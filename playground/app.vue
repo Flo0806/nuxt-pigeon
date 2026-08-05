@@ -266,6 +266,7 @@ const ntfyTitle = ref('nuxt-pigeon')
 const ntfyPriority = ref(0)
 const ntfyTags = ref('warning')
 const ntfyClick = ref('')
+const ntfyMediaUrl = ref('')
 const ntfyPending = ref(false)
 const ntfyResult = ref<Published | null>(null)
 
@@ -284,6 +285,7 @@ async function sendNtfy() {
         priority: ntfyPriority.value,
         tags: ntfyTags.value,
         click: ntfyClick.value,
+        mediaUrl: ntfyMediaUrl.value,
       },
     })
   } finally {
@@ -782,6 +784,11 @@ async function probe() {
         <label>
           Click url
           <input v-model="ntfyClick" placeholder="optional, opened when tapped" />
+        </label>
+
+        <label>
+          Image url, empty sends text only
+          <input v-model="ntfyMediaUrl" placeholder="https://…/something.png" />
         </label>
 
         <button type="submit" :disabled="ntfyPending || !ntfyText.trim()">

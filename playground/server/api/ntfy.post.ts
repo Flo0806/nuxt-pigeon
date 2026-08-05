@@ -1,12 +1,13 @@
 import type { NtfyPriority } from '../../../src/runtime/server/channels/ntfy/types'
 
 export default defineEventHandler(async (event) => {
-  const { text, title, priority, tags, click } = await readBody<{
+  const { text, title, priority, tags, click, mediaUrl } = await readBody<{
     text: string
     title: string
     priority: number
     tags: string
     click: string
+    mediaUrl: string
   }>(event)
 
   try {
@@ -15,6 +16,8 @@ export default defineEventHandler(async (event) => {
       priority: (priority || undefined) as NtfyPriority | undefined,
       tags: tags ? tags.split(',').map((tag) => tag.trim()) : undefined,
       click: click || undefined,
+      // A url stays a url, ntfy fetches it itself.
+      media: mediaUrl ? { url: mediaUrl } : undefined,
     })
 
     return { ok: true as const, id: (published as { id?: string })?.id }

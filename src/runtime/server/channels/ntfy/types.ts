@@ -1,5 +1,7 @@
 /** Everything ntfy accepts. Documented at https://docs.ntfy.sh/publish/ */
 
+import type { Media } from '../../core/media'
+
 interface NtfyActionBase {
   label: string
   /** Clears the notification after the action ran. */
@@ -36,6 +38,14 @@ export type NtfyPriority = 1 | 2 | 3 | 4 | 5
 export interface NtfySendOptions {
   /** Overrides the configured topic. ntfy publishes to one topic per request. */
   topic?: string
+  /**
+   * **One** attachment, ntfy takes no more per message.
+   *
+   * A url stays a url and ntfy fetches it itself. Bytes take a different route
+   * entirely: the body becomes the file, so the options travel as headers, and a
+   * title with an umlaut is encoded per RFC 2047 on the way.
+   */
+  media?: Media
   /**
    * Merged over the ones we set. ntfy accepts every option as a header too, so this
    * is the way to reach anything it adds before we know about it.

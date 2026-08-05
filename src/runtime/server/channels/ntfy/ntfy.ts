@@ -1,7 +1,9 @@
 import { useRuntimeConfig } from '#imports'
 import { post } from '../../core/post'
 import type { RequestOptions } from '../../core/request'
+import { isUrlMedia, resolveMedia } from '../../core/media'
 import { assertWithinLimit } from './format'
+import { uploadHeaders } from './media'
 import type { NtfySendOptions } from './types'
 
 const DEFAULT_SERVER = 'https://ntfy.sh'
@@ -46,23 +48,45 @@ async function send(text: string, options: NtfySendOptions & RequestOptions = {}
     headers['X-Firebase'] = 'no'
   }
 
+  const fields = {
+    message: text,
+    title: options.title,
+    priority: options.priority,
+    tags: options.tags,
+    click: options.click,
+    markdown: options.markdown,
+    icon: options.icon,
+    filename: options.filename,
+    actions: options.actions,
+    email: options.email,
+    call: options.call,
+    delay: options.delay,
+  }
+
+  // Bytes take a completely different route: the body **is** the file, so the topic
+  // moves into the path and every option has to travel as a header. A url stays on
+  // the json route as `attach`, and ntfy fetches it itself.
+  if (options.media && !isUrlMedia(options.media)) {
+    const resolved = await resolveMedia(options.media, options)
+
+    return post(new URL(`/${topic}`, server).toString(), resolved.bytes, {
+      ...options,
+      method: 'PUT',
+      headers: {
+        ...headers,
+        ...uploadHeaders({ ...fields, filename: options.filename ?? resolved.filename }),
+        ...options.headers,
+      },
+      label: 'ntfy',
+    })
+  }
+
   return post(
     new URL('/', server).toString(),
     {
       topic,
-      message: text,
-      title: options.title,
-      priority: options.priority,
-      tags: options.tags,
-      click: options.click,
-      markdown: options.markdown,
-      icon: options.icon,
-      attach: options.attach,
-      filename: options.filename,
-      actions: options.actions,
-      email: options.email,
-      call: options.call,
-      delay: options.delay,
+      ...fields,
+      attach: options.media ? options.media.url : options.attach,
     },
     { ...options, headers: { ...headers, ...options.headers }, label: 'ntfy' },
   )
