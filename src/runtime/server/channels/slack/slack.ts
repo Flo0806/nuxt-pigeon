@@ -4,6 +4,7 @@ import type { SlackEnvelope } from './types'
 import { post } from '../../core/post'
 import type { RequestOptions } from '../../core/request'
 import { toResult, type PigeonResult } from '../../core/result'
+import { unsupported } from '../../core/unsupported'
 import { assertWithinLimit, escapeMrkdwn } from './format'
 
 export interface SlackSendOptions extends RequestOptions {
@@ -64,4 +65,27 @@ function listen(handler: Handler<SlackEnvelope>): () => void {
   return addListener('slack', handler)
 }
 
-export const slack = { send, listen, escapeMrkdwn }
+/**
+ * `edit` and `delete` exist at runtime only to explain themselves, and are cut out of
+ * the type below. This is the "other credentials" case: Slack can do both, an incoming
+ * webhook cannot.
+ */
+const api = {
+  send,
+  listen,
+  escapeMrkdwn,
+  edit: unsupported(
+    'slack',
+    'edit',
+    'An incoming webhook answers with the plain text `ok` and no message id, so there ' +
+      'is nothing to address. `chat.update` can do it, but that needs a bot token.',
+  ),
+  delete: unsupported(
+    'slack',
+    'delete',
+    'An incoming webhook answers with the plain text `ok` and no message id, so there ' +
+      'is nothing to address. `chat.delete` can do it, but that needs a bot token.',
+  ),
+}
+
+export const slack: Omit<typeof api, 'edit' | 'delete'> = api

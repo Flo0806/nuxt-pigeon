@@ -2,6 +2,7 @@ import { useRuntimeConfig } from '#imports'
 import { addListener, type Handler } from '../../core/listeners'
 import { createRequest, type RequestOptions } from '../../core/request'
 import { toResult, type RawResponse } from '../../core/result'
+import { unsupported } from '../../core/unsupported'
 import { assertWithinLimit, detectRanges } from './format'
 import { assertImageCount, externalEmbed, imagesEmbed, uploadBlob } from './media'
 import { withSession, type Session } from './session'
@@ -314,4 +315,19 @@ function listen(handler: Handler<BlueskyNotification>): () => void {
   return addListener('bluesky', handler)
 }
 
-export const bluesky = { post, delete: remove, listen, notifications }
+/** Only `edit` is missing, and it is missing because Bluesky has no honest one. */
+const api = {
+  post,
+  delete: remove,
+  listen,
+  notifications,
+  edit: unsupported(
+    'bluesky',
+    'edit',
+    '`putRecord` answers with a 200 and the appview ignores the change, so an edit ' +
+      'would look like it worked and do nothing. Delete the post and write a new one. ' +
+      'https://github.com/bluesky-social/atproto/discussions/3038',
+  ),
+}
+
+export const bluesky: Omit<typeof api, 'edit'> = api

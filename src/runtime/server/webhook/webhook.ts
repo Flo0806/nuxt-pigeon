@@ -3,6 +3,7 @@ import { resolveEndpoint } from '../core/endpoint'
 import { addListener, type Handler } from '../core/listeners'
 import { post, type PostOptions } from '../core/post'
 import { toResult } from '../core/result'
+import { unsupported } from '../core/unsupported'
 
 export interface WebhookSendOptions extends PostOptions {
   /** Name of a configured endpoint. Without one the default url is used. */
@@ -53,4 +54,26 @@ function listen(handler: Handler): () => void {
   return addListener('webhook', handler)
 }
 
-export const webhook = { send, listen }
+/**
+ * Nothing is missing here, the concept is: you point this at any url, so only you know
+ * whether the thing on the other end can be changed and how. `send` already carries
+ * `method` and `url`, so a PATCH or a DELETE is one call.
+ */
+const api = {
+  send,
+  listen,
+  edit: unsupported(
+    'webhook',
+    'edit',
+    'You decide what the receiver is, so only you know how it is changed. `send` takes ' +
+      "a method: webhook.send(payload, { method: 'PATCH', url }).",
+  ),
+  delete: unsupported(
+    'webhook',
+    'delete',
+    'You decide what the receiver is, so only you know how it is removed. `send` takes ' +
+      "a method: webhook.send(undefined, { method: 'DELETE', url }).",
+  ),
+}
+
+export const webhook: Omit<typeof api, 'edit' | 'delete'> = api
