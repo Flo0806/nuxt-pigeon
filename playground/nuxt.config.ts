@@ -1,6 +1,7 @@
 export default defineNuxtConfig({
   modules: ['nuxt-pigeon'],
   devtools: { enabled: true },
+  css: ['~/assets/pigeon.css'],
   compatibilityDate: 'latest',
   nuxtPigeon: {
     channels: {

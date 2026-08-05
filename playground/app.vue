@@ -628,6 +628,12 @@ async function probe() {
 
 <template>
   <main>
+    <div class="rebuilt">
+      <h1>Rebuilt</h1>
+      <p class="hint">One card, for review. Everything below is still the old page.</p>
+      <TelegramCard />
+    </div>
+
     <h1>nuxt-pigeon</h1>
     <h2>Layer 0: transport</h2>
     <p class="hint">
@@ -1444,7 +1450,14 @@ async function probe() {
   </main>
 </template>
 
-<style>
+<style scoped>
+.rebuilt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 3rem;
+}
+
 main {
   max-width: 34rem;
   margin: 4rem auto;

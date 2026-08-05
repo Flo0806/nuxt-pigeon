@@ -1,0 +1,291 @@
+:root {
+  --navy: #0a0d33;
+  --green: #61e3a3;
+  --green-deep: #1d7d68;
+  --green-soft: #eafaf3;
+
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --ink: var(--navy);
+  --muted: #5b6079;
+  --line: #e3e6f0;
+
+  --ok: #1d7d68;
+  --fail: #b3261e;
+  --warn: #8a6100;
+
+  --radius: 14px;
+  --radius-sm: 8px;
+  --gap: 0.75rem;
+  --shadow: 0 1px 2px rgb(10 13 51 / 6%), 0 8px 24px rgb(10 13 51 / 6%);
+
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  line-height: 1.55;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.2;
+}
+
+code {
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: var(--green-soft);
+  color: var(--green-deep);
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+
+pre {
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+  background: var(--navy);
+  color: #dfe3f5;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+pre code {
+  padding: 0;
+  background: none;
+  color: inherit;
+}
+
+/* Fields ------------------------------------------------------------------ */
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+label.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 400;
+}
+
+input,
+select,
+textarea {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+textarea {
+  resize: vertical;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--green-deep);
+  outline-offset: 2px;
+}
+
+input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--green-deep);
+}
+
+/* Buttons ----------------------------------------------------------------- */
+
+button {
+  padding: 0.5rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  /* The logo relationship, and it measures 11.65:1. */
+  background: var(--green);
+  color: var(--navy);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #4fd897;
+}
+
+button:disabled {
+  background: var(--line);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+button.ghost {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+button.ghost:hover:not(:disabled) {
+  border-color: var(--green-deep);
+  background: var(--green-soft);
+}
+
+/* Zones ------------------------------------------------------------------- */
+
+/**
+ * A card holds up to three of these. Sending stays on the white surface, because it
+ * is what you came for. What follows from it sits in a recessed panel, so the eye can
+ * tell at a glance where one job ends and the next begins.
+ */
+.zone {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+/** Belongs to the message you just sent, so it carries the accent. */
+.zone.linked {
+  border-left: 3px solid var(--green);
+}
+
+.zone > .label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/**
+ * A whole zone can be collapsible, and then the label is the handle.
+ *
+ * The `details` element itself stays a plain block: `display: flex` on it behaves
+ * differently between browsers, because everything after `summary` sits in an
+ * anonymous box of its own, and the gap then never reaches the children. So the
+ * content gets its own flex container.
+ */
+details.zone {
+  display: block;
+}
+
+.zone-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+details.zone > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  list-style: none;
+  text-transform: uppercase;
+}
+
+details.zone > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.zone > summary::before {
+  color: var(--green-deep);
+  content: '▸';
+  font-size: 0.9rem;
+}
+
+details.zone[open] > summary::before {
+  content: '▾';
+}
+
+details.zone[open] > summary {
+  margin-bottom: 0.6rem;
+}
+
+/* Shared bits ------------------------------------------------------------- */
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.ok {
+  color: var(--ok);
+}
+
+.fail {
+  color: var(--fail);
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 0.85em;
+}
+
+/** A status dot that reads without its label, and with it for anyone who cannot see colour. */
+.dot {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--line);
+}
+
+.dot.on {
+  background: var(--green-deep);
+}
+
+.dot.off {
+  background: #c9ccd8;
+}
