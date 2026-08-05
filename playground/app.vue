@@ -294,6 +294,7 @@ async function sendNtfy() {
 const tgText = ref('<b>Deploy failed</b> on main')
 const tgParseMode = ref('HTML')
 const tgEscape = ref(false)
+const tgMediaUrl = ref('')
 const tgPending = ref(false)
 const tgResult = ref<Sent | null>(null)
 
@@ -303,7 +304,12 @@ async function sendTelegram() {
   try {
     tgResult.value = await $fetch('/api/telegram', {
       method: 'POST',
-      body: { text: tgText.value, parseMode: tgParseMode.value, escape: tgEscape.value },
+      body: {
+        text: tgText.value,
+        parseMode: tgParseMode.value,
+        escape: tgEscape.value,
+        mediaUrl: tgMediaUrl.value,
+      },
     })
   } finally {
     tgPending.value = false
@@ -676,6 +682,16 @@ async function probe() {
           <input v-model="tgEscape" type="checkbox" />
           Run it through <code>escapeHtml</code> first
         </label>
+
+        <label>
+          Image url, empty sends text only
+          <input v-model="tgMediaUrl" placeholder="https://…/something.png" />
+        </label>
+
+        <p v-if="tgMediaUrl" class="hint">
+          The url goes to Telegram <strong>untouched</strong>, it fetches the file itself. And the
+          text becomes a caption, so the limit drops from 4096 to <strong>1024</strong>.
+        </p>
 
         <button type="submit" :disabled="tgPending || !tgText.trim()">
           {{ tgPending ? 'Sending...' : 'Send to Telegram' }}

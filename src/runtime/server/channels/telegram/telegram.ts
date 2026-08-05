@@ -3,6 +3,8 @@ import { addListener, type Handler } from '../../core/listeners'
 import type { TelegramUpdate } from './types'
 import { createRequest, type RequestOptions } from '../../core/request'
 import { assertWithinLimit, escapeHtml } from './format'
+import { assertCaptionLimit, buildMedia } from './media'
+import type { Media } from '../../core/media'
 
 const API = 'https://api.telegram.org'
 
@@ -15,6 +17,19 @@ export interface TelegramSendOptions extends RequestOptions {
   chatId?: string | number
   disableNotification?: boolean
   disableLinkPreview?: boolean
+  /**
+   * One item becomes a photo, video, audio or document depending on its type,
+   * several become an album. **A url is handed to Telegram untouched**, it fetches
+   * the file itself, so nothing is downloaded here.
+   *
+   * With media the text becomes the caption, and a caption allows only 1024
+   * characters instead of 4096.
+   */
+  media?: Media[]
+  /** Turns the message into a reply. */
+  replyToMessageId?: number
+  /** Inline keyboard, passed through untouched. */
+  replyMarkup?: unknown
 }
 
 function settings() {
@@ -59,7 +74,7 @@ function fail(method: string, error: unknown): never {
 
 async function callApi<T>(
   method: string,
-  payload: Record<string, unknown>,
+  payload: Record<string, unknown> | FormData,
   options: RequestOptions = {},
 ): Promise<T> {
   const { token } = settings()
@@ -71,6 +86,7 @@ async function callApi<T>(
   try {
     const answer = await createRequest({ retryAfter, ...options })<{ result: T }>(
       `${API}/bot${token}/${method}`,
+      // FormData sets its own content type, including the boundary.
       { method: 'POST', body: payload },
     )
 
@@ -80,12 +96,28 @@ async function callApi<T>(
   }
 }
 
-async function send(text: string, options: TelegramSendOptions = {}) {
+async function send(text: string, options: TelegramSendOptions & RequestOptions = {}) {
   const { chatId } = settings()
   const target = options.chatId ?? chatId
 
   if (!target) {
     throw new Error('Telegram chat id is not defined. Set PIGEON_TELEGRAM_CHAT_ID')
+  }
+
+  const fields = {
+    chat_id: target,
+    parse_mode: options.parseMode,
+    disable_notification: options.disableNotification,
+    reply_to_message_id: options.replyToMessageId,
+    reply_markup: options.replyMarkup,
+  }
+
+  if (options.media?.length) {
+    assertCaptionLimit(text)
+
+    const { method, body } = await buildMedia(options.media, { ...fields, caption: text }, options)
+
+    return callApi<{ message_id: number }>(method, body, options)
   }
 
   assertWithinLimit(text)
@@ -94,10 +126,8 @@ async function send(text: string, options: TelegramSendOptions = {}) {
   return callApi<{ message_id: number; text?: string }>(
     'sendMessage',
     {
-      chat_id: target,
+      ...fields,
       text,
-      parse_mode: options.parseMode,
-      disable_notification: options.disableNotification,
       link_preview_options: options.disableLinkPreview ? { is_disabled: true } : undefined,
     },
     options,
