@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { countCharacters } from '../src/runtime/server/channels/mastodon/format'
+
 interface Probe {
   ok: boolean
   status: number | null
@@ -169,6 +171,46 @@ async function sendSlack() {
     })
   } finally {
     slackPending.value = false
+  }
+}
+
+const pollers = ref<Record<string, boolean>>({})
+
+async function checkPollers() {
+  pollers.value = await $fetch('/api/pollers')
+}
+onMounted(checkPollers)
+
+const mastoText = ref(
+  'Release 1.0 ist da: https://example.com/ein/sehr/langer/pfad/der/nicht/zaehlt',
+)
+const mastoVisibility = ref('direct')
+const mastoSpoiler = ref('')
+const mastoPending = ref(false)
+const mastoResult = ref<{ ok: boolean; url?: string; error?: string } | null>(null)
+
+/**
+ * The same function the channel uses, so the number here is the number that decides.
+ * A link costs a flat 23 no matter how long it is.
+ */
+const mastoCount = computed(() =>
+  countCharacters(mastoText.value, { maxCharacters: 500, charactersReservedPerUrl: 23 }),
+)
+
+async function sendMastodon() {
+  mastoPending.value = true
+  mastoResult.value = null
+  try {
+    mastoResult.value = await $fetch('/api/mastodon', {
+      method: 'POST',
+      body: {
+        text: mastoText.value,
+        visibility: mastoVisibility.value,
+        spoilerText: mastoSpoiler.value,
+      },
+    })
+  } finally {
+    mastoPending.value = false
   }
 }
 
@@ -673,6 +715,62 @@ async function probe() {
       <p v-if="ntfyResult" :class="ntfyResult.ok ? 'ok' : 'fail'">
         {{ ntfyResult.ok ? `Published, id ${ntfyResult.id}` : ntfyResult.error }}
       </p>
+    </section>
+    <section>
+      <h2>Layer 2: mastodon</h2>
+      <p class="hint">
+        Broadcast, so the verb is <code>post</code> and not <code>send</code>.
+        <strong>This goes out publicly</strong> unless you pick another visibility. Receiving is
+        polled, there is no webhook for your own account.
+      </p>
+
+      <p class="hint">
+        Poller is
+        <strong :class="pollers.mastodon ? 'ok' : 'fail'">
+          {{ pollers.mastodon ? 'running' : 'not running' }}</strong
+        >. The first round only marks where we are, so trigger something <strong>after</strong> the
+        server started. Mastodon never notifies you about your own actions, so a second account has
+        to mention or follow you.
+      </p>
+
+      <form @submit.prevent="sendMastodon">
+        <label>
+          Text
+          <textarea v-model="mastoText" rows="3" />
+        </label>
+
+        <!-- The point of the whole counting function, visible side by side. -->
+        <p class="hint">
+          {{ mastoText.length }} raw characters, <strong>{{ mastoCount }} counted</strong> of 500. A
+          link costs 23 whatever its length, and the domain of a remote mention costs nothing.
+        </p>
+
+        <label>
+          Visibility
+          <select v-model="mastoVisibility">
+            <option value="direct">direct, only mentioned accounts see it</option>
+            <option value="private">private, followers only</option>
+            <option value="unlisted">unlisted, not in public timelines</option>
+            <option value="">public, the instance default</option>
+          </select>
+        </label>
+
+        <label>
+          Content warning
+          <input v-model="mastoSpoiler" placeholder="optional, collapses the post" />
+        </label>
+
+        <button type="submit" :disabled="mastoPending || !mastoText.trim()">
+          {{ mastoPending ? 'Posting...' : 'Post' }}
+        </button>
+      </form>
+
+      <template v-if="mastoResult">
+        <p :class="mastoResult.ok ? 'ok' : 'fail'">
+          {{ mastoResult.ok ? 'Posted' : mastoResult.error }}
+        </p>
+        <a v-if="mastoResult.url" :href="mastoResult.url" target="_blank">{{ mastoResult.url }}</a>
+      </template>
     </section>
   </main>
 </template>

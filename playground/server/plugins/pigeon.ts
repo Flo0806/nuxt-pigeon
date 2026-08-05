@@ -11,7 +11,12 @@ export default defineNitroPlugin((nitro) => {
     received.length = Math.min(received.length, 10)
   }
 
-  const stops = [webhook.listen(keep), telegram.listen(keep), slack.listen(keep)]
+  const stops = [
+    webhook.listen(keep),
+    telegram.listen(keep),
+    slack.listen(keep),
+    mastodon.listen(keep),
+  ]
 
   nitro.hooks.hook('close', () => stops.forEach((stop) => stop()))
 })

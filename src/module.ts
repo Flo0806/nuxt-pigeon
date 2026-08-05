@@ -2,6 +2,7 @@ import {
   addImports,
   addServerHandler,
   addServerImports,
+  addServerPlugin,
   createResolver,
   defineNuxtModule,
   useLogger,
@@ -12,6 +13,12 @@ const DEFAULT_ROUTE = '/api/_pigeon/webhook'
 const DEFAULT_STREAM_ROUTE = '/api/_pigeon/stream'
 const DEFAULT_TELEGRAM_ROUTE = '/api/_pigeon/telegram'
 const DEFAULT_SLACK_ROUTE = '/api/_pigeon/slack'
+
+/** Generous against Mastodon's 300 requests per five minutes. */
+const DEFAULT_POLL_MS = 30_000
+
+/** No long running process, so a poller would start per request and never finish. */
+const SERVERLESS_PRESET = /^(cloudflare|vercel|netlify|deno|edge)/
 
 export interface WebhookEndpoint {
   /** Falls back to `PIGEON_WEBHOOK_<NAME>_URL`, so it can stay out of the config. */
@@ -83,11 +90,24 @@ export interface NtfyOptions {
   topic?: string
 }
 
+export interface MastodonOptions {
+  /** Required, there is no sensible default. Form `https://mastodon.social`. */
+  instance?: string
+  /**
+   * Polls for notifications. Mastodon has no webhook for your own account, so this
+   * needs a **long running process**: it does not work on serverless presets.
+   */
+  receive?: boolean
+  /** Rate limit is 300 requests per five minutes, so this is generous. */
+  intervalMs?: number
+}
+
 export interface ChannelOptions {
   discord?: boolean | DiscordOptions
   telegram?: boolean | TelegramOptions
   slack?: boolean | SlackOptions
   ntfy?: boolean | NtfyOptions
+  mastodon?: boolean | MastodonOptions
 }
 
 export interface ModuleOptions {
@@ -114,6 +134,7 @@ declare module 'nuxt/schema' {
         telegram: { token: string; chatId: string; secretToken: string; route: string }
         slack: { webhookUrl: string; signingSecret: string }
         ntfy: { server: string; topic: string; token: string }
+        mastodon: { instance: string; token: string; intervalMs: number }
       }
     }
   }
@@ -139,6 +160,8 @@ export default defineNuxtModule<ModuleOptions>({
     const slackRoute = slackOptions.route || DEFAULT_SLACK_ROUTE
     const ntfy = options.channels?.ntfy
     const ntfyOptions = typeof ntfy === 'object' ? ntfy : {}
+    const mastodon = options.channels?.mastodon
+    const mastodonOptions = typeof mastodon === 'object' ? mastodon : {}
     const streamRoute = options.stream?.route || DEFAULT_STREAM_ROUTE
     const streaming = options.stream?.enabled ?? nuxt.options.dev
 
@@ -167,6 +190,11 @@ export default defineNuxtModule<ModuleOptions>({
         },
         slack: { webhookUrl: slackOptions.webhookUrl || '', signingSecret: '' },
         ntfy: { server: ntfyOptions.server || '', topic: ntfyOptions.topic || '', token: '' },
+        mastodon: {
+          instance: mastodonOptions.instance || '',
+          token: '',
+          intervalMs: mastodonOptions.intervalMs ?? DEFAULT_POLL_MS,
+        },
       },
     }
 
@@ -258,6 +286,26 @@ export default defineNuxtModule<ModuleOptions>({
         name: 'ntfy',
         from: resolver.resolve('./runtime/server/channels/ntfy/ntfy'),
       })
+    }
+
+    if (mastodon) {
+      addServerImports({
+        name: 'mastodon',
+        from: resolver.resolve('./runtime/server/channels/mastodon/mastodon'),
+      })
+      logger.info('mastodon posts publicly, it uses post() not send()')
+
+      if (mastodonOptions.receive) {
+        addServerPlugin(resolver.resolve('./runtime/server/channels/mastodon/plugin'))
+
+        const preset = nuxt.options.nitro.preset
+        if (preset && SERVERLESS_PRESET.test(preset)) {
+          logger.warn(
+            `mastodon can only be polled, and preset "${preset}" has no long running ` +
+              'process. Nothing will be received there.',
+          )
+        }
+      }
     }
 
     if (webhook.receive) {

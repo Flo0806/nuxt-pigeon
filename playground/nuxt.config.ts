@@ -12,6 +12,8 @@ export default defineNuxtConfig({
       slack: { receive: true },
       // server defaults to ntfy.sh, topic comes from PIGEON_NTFY_TOPIC
       ntfy: true,
+      // token comes from PIGEON_MASTODON_TOKEN
+      mastodon: { instance: 'https://mastodon.social', receive: true },
     },
     webhook: {
       // Registers POST /api/_pigeon/webhook
