@@ -150,15 +150,15 @@ A server sent event stream, one connection, closed automatically when the compon
 
 ## What each channel can do
 
-| | send | media | edit | delete | receive |
-|---|---|---|---|---|---|
-| Telegram | ✅ | ✅ | ✅ | ✅ | ✅ webhook |
-| Discord | ✅ | ✅ | ✅ | ✅ | — |
-| Slack | ✅ | ✅ ¹ | ✅ ¹ | ✅ ¹ | ✅ Events API |
-| ntfy | ✅ | ✅ | ✅ ² | ✅ ² | — |
-| Mastodon | ✅ | ✅ | ✅ | ✅ | ✅ polling |
-| Bluesky | ✅ | ✅ | ❌ ³ | ✅ | ✅ polling |
-| Webhook | ✅ | — | — ⁴ | — ⁴ | ✅ route |
+|          | send | media | edit | delete | receive       |
+| -------- | ---- | ----- | ---- | ------ | ------------- |
+| Telegram | ✅   | ✅    | ✅   | ✅     | ✅ webhook    |
+| Discord  | ✅   | ✅    | ✅   | ✅     | —             |
+| Slack    | ✅   | ✅ ¹  | ✅ ¹ | ✅ ¹   | ✅ Events API |
+| ntfy     | ✅   | ✅    | ✅ ² | ✅ ²   | —             |
+| Mastodon | ✅   | ✅    | ✅   | ✅     | ✅ polling    |
+| Bluesky  | ✅   | ✅    | ❌ ³ | ✅     | ✅ polling    |
+| Webhook  | ✅   | —     | — ⁴  | — ⁴    | ✅ route      |
 
 ¹ needs a bot token. With only an incoming webhook Slack answers `ok` and no message id, so there is nothing to point at afterwards.
 ² needs an ntfy server of 2.16.0 or newer.
