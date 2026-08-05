@@ -3,7 +3,22 @@
   "version": "1.0.0",
   "description": "Send and receive messages across Telegram, Slack, Discord and any webhook.",
   "license": "MIT",
-  "repository": "your-org/my-module",
+  "repository": "Flo0806/nuxt-pigeon",
+  "homepage": "https://github.com/Flo0806/nuxt-pigeon",
+  "bugs": "https://github.com/Flo0806/nuxt-pigeon/issues",
+  "keywords": [
+    "nuxt",
+    "nuxt-module",
+    "notifications",
+    "messaging",
+    "webhook",
+    "telegram",
+    "discord",
+    "slack",
+    "mastodon",
+    "bluesky",
+    "ntfy"
+  ],
   "workspaces": [
     "playground"
   ],
