@@ -1,9 +1,9 @@
-import type { DiscordResult } from '../../../src/runtime/server/channels/discord/types'
+import type { DiscordHandle } from '../../../src/runtime/server/channels/discord/types'
 
 /**
- * Editing and deleting take the result of `send` as their handle. Here it comes back
- * from the browser, which is why only the two fields that matter are rebuilt: in real
- * code you either keep the result around or store `id` and `attachmentIds` yourself.
+ * A handle is `id` plus the ids of the files on the message, and nothing else. It came
+ * back from the browser here, which is exactly the case a database has too: you kept
+ * two strings, and that is enough to change the message tomorrow.
  */
 export default defineEventHandler(async (event) => {
   const { action, id, attachmentIds, text, mediaUrl, keepImage } = await readBody<{
@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
     keepImage: boolean
   }>(event)
 
-  const handle = { channel: 'discord', id, attachmentIds } as DiscordResult
+  const handle: DiscordHandle = { id, attachmentIds }
 
   try {
     if (action === 'delete') {
