@@ -1,6 +1,27 @@
 /** Everything ntfy accepts. Documented at https://docs.ntfy.sh/publish/ */
 
 import type { Media } from '../../core/media'
+import type { PigeonResult } from '../../core/result'
+
+/** What ntfy echoes back after publishing. */
+export interface NtfyMessage {
+  id: string
+  /** Unix seconds. */
+  time?: number
+  topic?: string
+  message?: string
+  [key: string]: unknown
+}
+
+/**
+ * ntfy can neither edit nor delete a published message, so the id is only good for
+ * matching a delivery against your own logs.
+ */
+export interface NtfyResult extends PigeonResult<NtfyMessage | undefined> {
+  channel: 'ntfy'
+  /** The topic it actually went to, which may come from the call rather than config. */
+  topic: string
+}
 
 interface NtfyActionBase {
   label: string

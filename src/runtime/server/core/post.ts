@@ -1,4 +1,5 @@
 import { createRequest, type RequestOptions } from './request'
+import type { RawResponse } from './result'
 import { hmacSha256Base64, utf8 } from './verify'
 
 export interface PostOptions extends RequestOptions {
@@ -94,8 +95,15 @@ export async function signature(secret: string, id: string, timestamp: string, b
 /**
  * One POST to a url. Adds nothing to the payload: what you pass is what the receiver
  * gets. The only header set on its own is `Content-Type`.
+ *
+ * Returns the **whole** answer, not only the parsed body: status and headers are part
+ * of what the service said, and a channel has no business dropping them on the way.
  */
-export async function post(url: string, payload: unknown, options: PostOptions = {}) {
+export async function post<Body = unknown>(
+  url: string,
+  payload: unknown,
+  options: PostOptions = {},
+): Promise<RawResponse<Body>> {
   const { body, contentType } = serialise(payload)
   const headers = mergeHeaders(
     contentType ? { 'Content-Type': contentType } : undefined,
@@ -118,7 +126,7 @@ export async function post(url: string, payload: unknown, options: PostOptions =
   const name = targetName(url, options.label)
 
   try {
-    return await createRequest(options)(url, {
+    return await createRequest(options).raw<Body>(url, {
       method: options.method || 'POST',
       headers,
       body,

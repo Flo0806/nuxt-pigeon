@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
         : undefined,
     })
 
-    return { ok: true as const, uri: record.uri }
+    return { ok: true as const, uri: record.id, url: record.url }
   } catch (error) {
     return { ok: false as const, error: (error as Error).message }
   }

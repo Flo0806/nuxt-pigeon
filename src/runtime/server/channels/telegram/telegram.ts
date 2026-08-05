@@ -1,7 +1,13 @@
 import { useRuntimeConfig } from '#imports'
 import { addListener, type Handler } from '../../core/listeners'
-import type { TelegramUpdate } from './types'
+import type {
+  TelegramEnvelope,
+  TelegramMessagePayload,
+  TelegramResult,
+  TelegramUpdate,
+} from './types'
 import { createRequest, type RequestOptions } from '../../core/request'
+import { toResult, type RawResponse } from '../../core/result'
 import { assertWithinLimit, escapeHtml } from './format'
 import { assertCaptionLimit, buildMedia } from './media'
 import type { Media } from '../../core/media'
@@ -72,11 +78,16 @@ function fail(method: string, error: unknown): never {
   )
 }
 
-async function callApi<T>(
+/**
+ * Telegram wraps every answer in `{ ok, result }`. This returns the whole response so
+ * the envelope, the status and the headers survive; `callApi` unwraps it for the calls
+ * where only the value matters.
+ */
+async function callApiRaw<T>(
   method: string,
   payload: Record<string, unknown> | FormData,
   options: RequestOptions = {},
-): Promise<T> {
+): Promise<RawResponse<TelegramEnvelope<T>>> {
   const { token } = settings()
 
   if (!token) {
@@ -84,15 +95,47 @@ async function callApi<T>(
   }
 
   try {
-    const answer = await createRequest({ retryAfter, ...options })<{ result: T }>(
+    return await createRequest({ retryAfter, ...options }).raw<TelegramEnvelope<T>>(
       `${API}/bot${token}/${method}`,
       // FormData sets its own content type, including the boundary.
       { method: 'POST', body: payload },
     )
-
-    return answer.result
   } catch (error) {
     fail(method, error)
+  }
+}
+
+async function callApi<T>(
+  method: string,
+  payload: Record<string, unknown> | FormData,
+  options: RequestOptions = {},
+): Promise<T> {
+  const answer = await callApiRaw<T>(method, payload, options)
+
+  return answer._data?.result as T
+}
+
+/**
+ * `raw` is the **whole** envelope Telegram sent, `{ ok, result }`, not just the message
+ * inside it. Nothing gets unwrapped on the way out, so what you read is what arrived.
+ *
+ * A link only exists for a public chat: it is built from the `@name`, and a private
+ * chat has none.
+ */
+function result(
+  chatId: string | number,
+  response: RawResponse<TelegramEnvelope<TelegramMessagePayload>>,
+): TelegramResult {
+  const message = response._data?.result
+  const username = message?.chat?.username
+
+  return {
+    ...toResult('telegram', response),
+    channel: 'telegram',
+    id: message?.message_id?.toString(),
+    url: username && message ? `https://t.me/${username}/${message.message_id}` : undefined,
+    chatId,
+    messageId: message?.message_id,
   }
 }
 
@@ -117,20 +160,23 @@ async function send(text: string, options: TelegramSendOptions & RequestOptions 
 
     const { method, body } = await buildMedia(options.media, { ...fields, caption: text }, options)
 
-    return callApi<{ message_id: number }>(method, body, options)
+    return result(target, await callApiRaw<TelegramMessagePayload>(method, body, options))
   }
 
   assertWithinLimit(text)
 
   // Telegram echoes the parsed message back, which is what actually arrived.
-  return callApi<{ message_id: number; text?: string }>(
-    'sendMessage',
-    {
-      ...fields,
-      text,
-      link_preview_options: options.disableLinkPreview ? { is_disabled: true } : undefined,
-    },
-    options,
+  return result(
+    target,
+    await callApiRaw<TelegramMessagePayload>(
+      'sendMessage',
+      {
+        ...fields,
+        text,
+        link_preview_options: options.disableLinkPreview ? { is_disabled: true } : undefined,
+      },
+      options,
+    ),
   )
 }
 

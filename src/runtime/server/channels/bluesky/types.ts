@@ -1,6 +1,26 @@
 import type { Media } from '../../core/media'
+import type { PigeonResult } from '../../core/result'
 
 /** Documented at https://docs.bsky.app/docs/advanced-guides/post-richtext */
+
+/** What `createRecord` answers with, and all it answers with. */
+export interface BlueskyRecordRef {
+  /** `at://<did>/<collection>/<rkey>` */
+  uri: string
+  cid: string
+  [key: string]: unknown
+}
+
+/**
+ * `id` is the `at://` uri, because that is what Bluesky calls the post. The three
+ * parts below are the same thing taken apart, which is the form `deleteRecord` wants.
+ */
+export interface BlueskyResult extends PigeonResult<BlueskyRecordRef | undefined> {
+  channel: 'bluesky'
+  repo: string
+  collection: string
+  rkey?: string
+}
 
 /** **UTF-8 byte** offsets, not character positions. */
 export interface BlueskyByteRange {

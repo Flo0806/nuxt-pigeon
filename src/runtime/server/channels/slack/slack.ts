@@ -3,6 +3,7 @@ import { addListener, type Handler } from '../../core/listeners'
 import type { SlackEnvelope } from './types'
 import { post } from '../../core/post'
 import type { RequestOptions } from '../../core/request'
+import { toResult, type PigeonResult } from '../../core/result'
 import { assertWithinLimit, escapeMrkdwn } from './format'
 
 export interface SlackSendOptions extends RequestOptions {
@@ -10,6 +11,12 @@ export interface SlackSendOptions extends RequestOptions {
   mrkdwn?: boolean
   /** Block Kit, passed through untouched. `text` stays the notification preview. */
   blocks?: unknown[]
+}
+
+/** `raw` is the literal string `ok`, and there is no id to edit or delete with. */
+export interface SlackResult extends PigeonResult<string> {
+  channel: 'slack'
+  id?: undefined
 }
 
 function settings() {
@@ -23,11 +30,11 @@ function settings() {
  * The channel is fixed when the webhook is created and cannot be overridden per
  * message. Two channels need two webhooks.
  *
- * Returns nothing on purpose: Slack answers with the plain text `ok` and **no message
- * id**, so the message can never be edited, deleted or linked to. Inventing a result
- * here would hide that.
+ * There is **no id**: an incoming webhook answers with the plain text `ok`, so the
+ * message can never be edited, deleted or linked to. That `ok` is still handed over,
+ * because it is what Slack said, and the missing `id` is what says the rest.
  */
-async function send(text: string, options: SlackSendOptions = {}) {
+async function send(text: string, options: SlackSendOptions = {}): Promise<SlackResult> {
   const { webhookUrl } = settings()
 
   if (!webhookUrl) {
@@ -36,11 +43,15 @@ async function send(text: string, options: SlackSendOptions = {}) {
 
   assertWithinLimit(text)
 
-  await post(
+  const response = await post<string>(
     webhookUrl,
     { text, mrkdwn: options.mrkdwn, blocks: options.blocks },
     { ...options, label: 'Slack' },
   )
+
+  // Spelled out rather than left off: an incoming webhook has no id, and the type
+  // says so, so nobody writes an `edit` against it and finds out at runtime.
+  return { ...toResult('slack', response), channel: 'slack', id: undefined }
 }
 
 /**

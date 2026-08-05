@@ -2,9 +2,10 @@ import { useRuntimeConfig } from '#imports'
 import { post } from '../../core/post'
 import type { RequestOptions } from '../../core/request'
 import { isUrlMedia, resolveMedia } from '../../core/media'
+import { toResult, type RawResponse } from '../../core/result'
 import { assertWithinLimit } from './format'
 import { uploadHeaders } from './media'
-import type { NtfySendOptions } from './types'
+import type { NtfyMessage, NtfyResult, NtfySendOptions } from './types'
 
 const DEFAULT_SERVER = 'https://ntfy.sh'
 
@@ -66,10 +67,12 @@ async function send(text: string, options: NtfySendOptions & RequestOptions = {}
   // Bytes take a completely different route: the body **is** the file, so the topic
   // moves into the path and every option has to travel as a header. A url stays on
   // the json route as `attach`, and ntfy fetches it itself.
+  let response: RawResponse<NtfyMessage>
+
   if (options.media && !isUrlMedia(options.media)) {
     const resolved = await resolveMedia(options.media, options)
 
-    return post(new URL(`/${topic}`, server).toString(), resolved.bytes, {
+    response = await post<NtfyMessage>(new URL(`/${topic}`, server).toString(), resolved.bytes, {
       ...options,
       method: 'PUT',
       headers: {
@@ -79,17 +82,25 @@ async function send(text: string, options: NtfySendOptions & RequestOptions = {}
       },
       label: 'ntfy',
     })
+  } else {
+    response = await post<NtfyMessage>(
+      new URL('/', server).toString(),
+      {
+        topic,
+        ...fields,
+        attach: options.media ? options.media.url : options.attach,
+      },
+      { ...options, headers: { ...headers, ...options.headers }, label: 'ntfy' },
+    )
   }
 
-  return post(
-    new URL('/', server).toString(),
-    {
-      topic,
-      ...fields,
-      attach: options.media ? options.media.url : options.attach,
-    },
-    { ...options, headers: { ...headers, ...options.headers }, label: 'ntfy' },
-  )
+  // ntfy has no way to edit or delete afterwards, so the id is for correlating logs.
+  return {
+    ...toResult('ntfy', response),
+    channel: 'ntfy',
+    id: response._data?.id,
+    topic,
+  } satisfies NtfyResult
 }
 
 export const ntfy = { send }

@@ -1,6 +1,7 @@
 import { useRuntimeConfig } from '#imports'
 import { addListener, type Handler } from '../../core/listeners'
 import { createRequest, type RequestOptions } from '../../core/request'
+import { toResult, type RawResponse } from '../../core/result'
 import { assertWithinLimit, detectRanges } from './format'
 import { assertImageCount, externalEmbed, imagesEmbed, uploadBlob } from './media'
 import { withSession, type Session } from './session'
@@ -9,6 +10,8 @@ import type {
   BlueskyNotification,
   BlueskyNotificationOptions,
   BlueskyPostOptions,
+  BlueskyRecordRef,
+  BlueskyResult,
 } from './types'
 
 const DEFAULT_SERVICE = 'https://bsky.social'
@@ -43,8 +46,8 @@ function procedure<T>(
   method: string,
   session: Session,
   body: Record<string, unknown>,
-) {
-  return createRequest()<T>(new URL(`/xrpc/${method}`, service).toString(), {
+): Promise<RawResponse<T>> {
+  return createRequest().raw<T>(new URL(`/xrpc/${method}`, service).toString(), {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.accessJwt}` },
     body,
@@ -197,20 +200,40 @@ async function post(text: string, options: BlueskyPostOptions & RequestOptions =
   const facets =
     options.facets === false ? undefined : (options.facets ?? (await buildFacets(service, text)))
 
-  return withSession(service, identifier, password, async (session) =>
-    procedure<{ uri: string; cid: string }>(service, 'com.atproto.repo.createRecord', session, {
-      repo: session.did,
-      collection: 'app.bsky.feed.post',
-      record: {
-        $type: 'app.bsky.feed.post',
-        text,
-        createdAt: options.createdAt ?? new Date().toISOString(),
-        langs: options.langs,
-        facets: facets?.length ? facets : undefined,
-        embed: await buildEmbed(service, session, options),
+  return withSession(service, identifier, password, async (session) => {
+    const collection = 'app.bsky.feed.post'
+    const response = await procedure<BlueskyRecordRef>(
+      service,
+      'com.atproto.repo.createRecord',
+      session,
+      {
+        repo: session.did,
+        collection,
+        record: {
+          $type: collection,
+          text,
+          createdAt: options.createdAt ?? new Date().toISOString(),
+          langs: options.langs,
+          facets: facets?.length ? facets : undefined,
+          embed: await buildEmbed(service, session, options),
+        },
       },
-    }),
-  )
+    )
+
+    // The record key is the last segment of `at://<did>/<collection>/<rkey>`, and it
+    // is what deleteRecord needs. Bluesky never sends it on its own.
+    const rkey = response._data?.uri.split('/').pop()
+
+    return {
+      ...toResult('bluesky', response),
+      channel: 'bluesky',
+      id: response._data?.uri,
+      url: rkey ? `https://bsky.app/profile/${session.did}/post/${rkey}` : undefined,
+      repo: session.did,
+      collection,
+      rkey,
+    } satisfies BlueskyResult
+  })
 }
 
 /**

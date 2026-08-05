@@ -2,6 +2,7 @@ import { useRuntimeConfig } from '#imports'
 import { resolveEndpoint } from '../core/endpoint'
 import { addListener, type Handler } from '../core/listeners'
 import { post, type PostOptions } from '../core/post'
+import { toResult } from '../core/result'
 
 export interface WebhookSendOptions extends PostOptions {
   /** Name of a configured endpoint. Without one the default url is used. */
@@ -29,12 +30,16 @@ async function send(payload: unknown, options: WebhookSendOptions = {}) {
     )
   }
 
-  return post(url, payload, {
+  const response = await post(url, payload, {
     ...options,
     secret: options.secret ?? target.secret,
     headers: { ...target.headers, ...options.headers },
     label: options.label || (options.to ? `Webhook endpoint "${options.to}"` : undefined),
   })
+
+  // No id and no link: the receiver is whatever you pointed at, and it owes us no
+  // shape at all. `endpoint` is where it went, which is the one thing we do know.
+  return { ...toResult('webhook', response), channel: 'webhook' as const, endpoint: url }
 }
 
 /**

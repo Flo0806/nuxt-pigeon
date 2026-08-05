@@ -2,8 +2,9 @@ import { useRuntimeConfig } from '#imports'
 import { attach } from './attachments'
 import { post } from '../../core/post'
 import type { RequestOptions } from '../../core/request'
+import { toResult } from '../../core/result'
 import { assertWithinLimit, escapeMarkdown } from './format'
-import type { DiscordSendOptions } from './types'
+import type { DiscordMessage, DiscordResult, DiscordSendOptions } from './types'
 
 function settings() {
   const { discord } = useRuntimeConfig().pigeon.channels
@@ -49,7 +50,18 @@ async function send(text: string, options: DiscordSendOptions & RequestOptions =
   const body = options.media?.length ? await attach(payload, options.media, options) : payload
 
   // No secret: our signature headers would mean nothing to Discord.
-  return post(url.toString(), body, { ...options, label: 'Discord' })
+  const response = await post<DiscordMessage>(url.toString(), body, {
+    ...options,
+    label: 'Discord',
+  })
+
+  return {
+    ...toResult('discord', response),
+    channel: 'discord',
+    id: response._data?.id,
+    // No permalink: a message link needs the guild id, and the answer has none.
+    threadId: options.threadId,
+  } satisfies DiscordResult
 }
 
 export const discord = { send, escapeMarkdown }

@@ -4,6 +4,13 @@
 export type MastodonVisibility = 'public' | 'unlisted' | 'private' | 'direct'
 
 import type { Media } from '../../core/media'
+import type { PigeonResult } from '../../core/result'
+
+export interface MastodonResult extends PigeonResult<MastodonStatus | undefined> {
+  channel: 'mastodon'
+  /** Which instance it went to, so editing or deleting hits the right host. */
+  instance: string
+}
 
 export interface MastodonPostOptions {
   /**

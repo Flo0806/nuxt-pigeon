@@ -1,4 +1,5 @@
 import type { Media } from '../../core/media'
+import type { PigeonResult } from '../../core/result'
 
 /**
  * Everything Execute Webhook accepts, documented at
@@ -36,6 +37,22 @@ export interface DiscordEmbed {
   author?: { name: string; url?: string; icon_url?: string }
   footer?: { text: string; icon_url?: string }
   [key: string]: unknown
+}
+
+/** What a webhook answers with when `wait` is on. Discord sends far more than this. */
+export interface DiscordMessage {
+  id: string
+  channel_id?: string
+  content?: string
+  [key: string]: unknown
+}
+
+export interface DiscordResult extends PigeonResult<DiscordMessage | undefined> {
+  channel: 'discord'
+  /** Missing with `wait: false`, because Discord then answers 204 and says nothing. */
+  id?: string
+  /** Only known here, never in the answer, and needed to edit or delete again. */
+  threadId?: string
 }
 
 export interface DiscordSendOptions {

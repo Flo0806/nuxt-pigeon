@@ -11,11 +11,13 @@ import {
   pageIds,
   type MastodonLimits,
 } from './format'
+import { toResult } from '../../core/result'
 import { assertAttachmentCount, uploadMedia } from './media'
 import type {
   MastodonNotification,
   MastodonNotificationOptions,
   MastodonPostOptions,
+  MastodonResult,
   MastodonStatus,
 } from './types'
 
@@ -127,20 +129,32 @@ async function post(
     headers['Idempotency-Key'] = options.idempotencyKey
   }
 
-  return createRequest(options)<MastodonStatus>(new URL('/api/v1/statuses', instance).toString(), {
-    method: 'POST',
-    headers,
-    body: {
-      status: text,
-      visibility: options.visibility,
-      spoiler_text: options.spoilerText,
-      sensitive: options.sensitive,
-      language: options.language,
-      in_reply_to_id: options.inReplyToId,
-      scheduled_at: options.scheduledAt,
-      media_ids: mediaIds,
+  const response = await createRequest(options).raw<MastodonStatus>(
+    new URL('/api/v1/statuses', instance).toString(),
+    {
+      method: 'POST',
+      headers,
+      body: {
+        status: text,
+        visibility: options.visibility,
+        spoiler_text: options.spoilerText,
+        sensitive: options.sensitive,
+        language: options.language,
+        in_reply_to_id: options.inReplyToId,
+        scheduled_at: options.scheduledAt,
+        media_ids: mediaIds,
+      },
     },
-  })
+  )
+
+  return {
+    ...toResult('mastodon', response),
+    channel: 'mastodon',
+    id: response._data?.id,
+    // Mastodon hands out the permalink itself, no need to build one.
+    url: response._data?.url,
+    instance,
+  } satisfies MastodonResult
 }
 
 /**
