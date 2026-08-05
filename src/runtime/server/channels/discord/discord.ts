@@ -1,20 +1,9 @@
 import { useRuntimeConfig } from '#imports'
+import { attach } from './attachments'
 import { post } from '../../core/post'
 import type { RequestOptions } from '../../core/request'
 import { assertWithinLimit, escapeMarkdown } from './format'
-
-export interface DiscordSendOptions extends RequestOptions {
-  /** Overrides the name the webhook was created with. */
-  username?: string
-  avatarUrl?: string
-  /** Passed through untouched, so `@everyone` can be defused. */
-  allowedMentions?: unknown
-  /**
-   * Discord answers an empty 204 by default. `wait` asks for the created message
-   * instead, which is the only way to learn its id.
-   */
-  wait?: boolean
-}
+import type { DiscordSendOptions } from './types'
 
 function settings() {
   const { discord } = useRuntimeConfig().pigeon.channels
@@ -25,9 +14,9 @@ function settings() {
 
 /**
  * Everything below this is shared: retry, timeout, headers, the error that never
- * carries the url. Discord only contributes its own field names and its limit.
+ * carries the url. Discord only contributes its own field names and its limits.
  */
-async function send(text: string, options: DiscordSendOptions = {}) {
+async function send(text: string, options: DiscordSendOptions & RequestOptions = {}) {
   const { webhookUrl } = settings()
 
   if (!webhookUrl) {
@@ -37,18 +26,30 @@ async function send(text: string, options: DiscordSendOptions = {}) {
   assertWithinLimit(text)
 
   const wait = options.wait ?? true
+  const url = new URL(webhookUrl)
+  url.searchParams.set('wait', String(wait))
+  if (options.threadId) {
+    url.searchParams.set('thread_id', options.threadId)
+  }
 
-  return post(
-    `${webhookUrl}?wait=${wait}`,
-    {
-      content: text,
-      username: options.username,
-      avatar_url: options.avatarUrl,
-      allowed_mentions: options.allowedMentions,
-    },
-    // No secret: our signature headers would mean nothing to Discord.
-    { ...options, label: 'Discord' },
-  )
+  const payload = {
+    content: text,
+    username: options.username,
+    avatar_url: options.avatarUrl,
+    allowed_mentions: options.allowedMentions,
+    embeds: options.embeds,
+    tts: options.tts,
+    flags: options.flags,
+    thread_name: options.threadName,
+    applied_tags: options.appliedTags,
+    components: options.components,
+    poll: options.poll,
+  }
+
+  const body = options.media?.length ? await attach(payload, options.media, options) : payload
+
+  // No secret: our signature headers would mean nothing to Discord.
+  return post(url.toString(), body, { ...options, label: 'Discord' })
 }
 
 export const discord = { send, escapeMarkdown }

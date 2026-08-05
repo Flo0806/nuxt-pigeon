@@ -144,6 +144,10 @@ interface Sent {
 
 const discordText = ref('*Deploy failed* on `main`')
 const discordEscape = ref(false)
+const discordMediaUrl = ref('')
+const discordAlt = ref('Ein Screenshot')
+const discordSpoiler = ref(false)
+const discordEmbed = ref(false)
 const discordPending = ref(false)
 const discordResult = ref<Sent | null>(null)
 
@@ -153,7 +157,14 @@ async function sendDiscord() {
   try {
     discordResult.value = await $fetch('/api/discord', {
       method: 'POST',
-      body: { text: discordText.value, escape: discordEscape.value },
+      body: {
+        text: discordText.value,
+        escape: discordEscape.value,
+        mediaUrl: discordMediaUrl.value,
+        alt: discordAlt.value,
+        spoiler: discordSpoiler.value,
+        withEmbed: discordEmbed.value,
+      },
     })
   } finally {
     discordPending.value = false
@@ -574,6 +585,26 @@ async function probe() {
         <label class="inline">
           <input v-model="discordEscape" type="checkbox" />
           Run it through <code>escapeMarkdown</code> first
+        </label>
+
+        <label>
+          Image url, empty sends text only
+          <input v-model="discordMediaUrl" placeholder="https://…/something.png" />
+        </label>
+
+        <label>
+          Alt text
+          <input v-model="discordAlt" />
+        </label>
+
+        <label class="inline">
+          <input v-model="discordSpoiler" type="checkbox" />
+          Spoiler. Only works on a real attachment, never on an embed image url
+        </label>
+
+        <label class="inline">
+          <input v-model="discordEmbed" type="checkbox" />
+          Wrap it in an embed that points at the attachment
         </label>
 
         <button type="submit" :disabled="discordPending || !discordText.trim()">
