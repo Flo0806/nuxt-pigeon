@@ -11,6 +11,7 @@ import {
 const DEFAULT_ROUTE = '/api/_pigeon/webhook'
 const DEFAULT_STREAM_ROUTE = '/api/_pigeon/stream'
 const DEFAULT_TELEGRAM_ROUTE = '/api/_pigeon/telegram'
+const DEFAULT_SLACK_ROUTE = '/api/_pigeon/slack'
 
 export interface WebhookEndpoint {
   /** Falls back to `PIGEON_WEBHOOK_<NAME>_URL`, so it can stay out of the config. */
@@ -63,9 +64,21 @@ export interface TelegramOptions {
   route?: string
 }
 
+export interface SlackOptions {
+  /** Falls back to `PIGEON_SLACK_WEBHOOK_URL`. The url itself is the credential. */
+  webhookUrl?: string
+  /**
+   * Registers the Events API route. Slack has no polling, so this needs a publicly
+   * reachable address even in development.
+   */
+  receive?: boolean
+  route?: string
+}
+
 export interface ChannelOptions {
   discord?: boolean | DiscordOptions
   telegram?: boolean | TelegramOptions
+  slack?: boolean | SlackOptions
 }
 
 export interface ModuleOptions {
@@ -90,6 +103,7 @@ declare module 'nuxt/schema' {
       channels: {
         discord: { webhookUrl: string }
         telegram: { token: string; chatId: string; secretToken: string; route: string }
+        slack: { webhookUrl: string; signingSecret: string }
       }
     }
   }
@@ -110,6 +124,9 @@ export default defineNuxtModule<ModuleOptions>({
     const telegram = options.channels?.telegram
     const telegramOptions = typeof telegram === 'object' ? telegram : {}
     const telegramRoute = telegramOptions.route || DEFAULT_TELEGRAM_ROUTE
+    const slack = options.channels?.slack
+    const slackOptions = typeof slack === 'object' ? slack : {}
+    const slackRoute = slackOptions.route || DEFAULT_SLACK_ROUTE
     const streamRoute = options.stream?.route || DEFAULT_STREAM_ROUTE
     const streaming = options.stream?.enabled ?? nuxt.options.dev
 
@@ -136,6 +153,7 @@ export default defineNuxtModule<ModuleOptions>({
           secretToken: '',
           route: telegramRoute,
         },
+        slack: { webhookUrl: slackOptions.webhookUrl || '', signingSecret: '' },
       },
     }
 
@@ -189,6 +207,34 @@ export default defineNuxtModule<ModuleOptions>({
           logger.warn(
             `telegram delivers to ${telegramRoute}, and it cannot reach localhost. ` +
               'Run with --tunnel and call telegram.setWebhook() with the tunnel address.',
+          )
+        }
+      }
+    }
+
+    if (slack) {
+      addServerImports({
+        name: 'slack',
+        from: resolver.resolve('./runtime/server/channels/slack/slack'),
+      })
+
+      if (slackOptions.receive) {
+        addServerHandler({
+          route: slackRoute,
+          method: 'post',
+          handler: resolver.resolve('./runtime/server/channels/slack/route'),
+        })
+
+        if (nuxt.options.dev) {
+          logger.warn(
+            `slack receives events at ${slackRoute}, and it has no polling. Run with ` +
+              '--tunnel and enter the address under Event Subscriptions.',
+          )
+          // Cost five hours once. Slack verifies the url over HTTP either way, so the
+          // setup looks finished while every event silently goes to a socket instead.
+          logger.warn(
+            'slack: if events never arrive, check that **Socket Mode is off**. With it ' +
+              'on, Slack delivers to a websocket and the request url is only verified.',
           )
         }
       }

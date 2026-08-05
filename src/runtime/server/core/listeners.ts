@@ -3,7 +3,7 @@ import type { PigeonMessage } from '../../types'
 /** Listeners registered under this name get every channel, which is what the stream needs. */
 export const ANY = '*'
 
-export type Handler = (message: PigeonMessage) => unknown | Promise<unknown>
+export type Handler<Body = unknown> = (message: PigeonMessage<Body>) => unknown | Promise<unknown>
 
 /**
  * Survives HMR. Without this every reload would add another copy of the same handler
@@ -20,12 +20,12 @@ function registry(): Map<string, Set<Handler>> {
 }
 
 /** Returns the function to unregister again, which a plugin needs on shutdown. */
-export function addListener(channel: string, handler: Handler): () => void {
+export function addListener<Body = unknown>(channel: string, handler: Handler<Body>): () => void {
   const handlers = registry().get(channel) ?? new Set()
-  handlers.add(handler)
+  handlers.add(handler as Handler)
   registry().set(channel, handlers)
 
-  return () => handlers.delete(handler)
+  return () => handlers.delete(handler as Handler)
 }
 
 export function listenerCount(channel: string): number {

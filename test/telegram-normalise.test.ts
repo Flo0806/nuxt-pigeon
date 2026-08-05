@@ -6,8 +6,12 @@ const from = { id: 4711, username: 'flo', first_name: 'Florian' }
 describe('normalise', () => {
   it('pulls text, sender and chat out of a message', () => {
     expect(
-      normalise({ update_id: 1, message: { text: 'hallo', from, chat: { id: -100 } } }),
+      normalise({
+        update_id: 1,
+        message: { message_id: 1, text: 'hallo', from, chat: { id: -100 } },
+      }),
     ).toEqual({
+      type: 'message',
       text: 'hallo',
       from: { id: '4711', name: 'flo' },
       conversation: '-100',
@@ -15,20 +19,26 @@ describe('normalise', () => {
   })
 
   it('falls back to the first name when there is no username', () => {
-    const message = { text: 'hallo', from: { id: 1, first_name: 'Florian' } }
+    const message = { message_id: 1, text: 'hallo', from: { id: 1, first_name: 'Florian' } }
 
     expect(normalise({ update_id: 1, message }).from).toEqual({ id: '1', name: 'Florian' })
   })
 
   it('reads the caption of a photo, which carries no text field', () => {
-    expect(normalise({ update_id: 1, message: { caption: 'ein Bild' } }).text).toBe('ein Bild')
+    expect(normalise({ update_id: 1, message: { message_id: 1, caption: 'ein Bild' } }).text).toBe(
+      'ein Bild',
+    )
   })
 
-  it('handles an edit and a channel post the same way', () => {
-    expect(normalise({ update_id: 1, edited_message: { text: 'korrigiert' } }).text).toBe(
-      'korrigiert',
-    )
-    expect(normalise({ update_id: 1, channel_post: { text: 'im Kanal' } }).text).toBe('im Kanal')
+  it('handles an edit and a channel post the same way, but says which it was', () => {
+    const edited = normalise({
+      update_id: 1,
+      edited_message: { message_id: 1, text: 'korrigiert' },
+    })
+    const channel = normalise({ update_id: 1, channel_post: { message_id: 1, text: 'im Kanal' } })
+
+    expect(edited).toMatchObject({ type: 'edited_message', text: 'korrigiert' })
+    expect(channel).toMatchObject({ type: 'channel_post', text: 'im Kanal' })
   })
 
   it('returns nothing for an update it does not know', () => {
@@ -37,7 +47,10 @@ describe('normalise', () => {
   })
 
   it('turns numeric ids into strings, they exceed the safe integer range', () => {
-    const result = normalise({ update_id: 1, message: { from, chat: { id: -1002 } } })
+    const result = normalise({
+      update_id: 1,
+      message: { message_id: 1, from, chat: { id: -1002 } },
+    })
 
     expect(result.from?.id).toBe('4711')
     expect(result.conversation).toBe('-1002')

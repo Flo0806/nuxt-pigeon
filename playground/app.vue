@@ -105,9 +105,14 @@ const selfSecret = ref('')
 const selfPending = ref(false)
 const selfError = ref('')
 
+/** The full ISO stamp is noise in a list, the time of day is what you compare. */
+function time(at: string) {
+  return at.slice(11, 19)
+}
+
 /** A GitHub push payload is 20kb, so the page shows the beginning and the size. */
-function preview(raw: string) {
-  return raw.length > 400 ? `${raw.slice(0, 400)}\n... ${raw.length - 400} more bytes` : raw
+function preview(raw: string, limit = 400) {
+  return raw.length > limit ? `${raw.slice(0, limit)}\n... ${raw.length - limit} more` : raw
 }
 
 async function selfSend() {
@@ -145,6 +150,25 @@ async function sendDiscord() {
     })
   } finally {
     discordPending.value = false
+  }
+}
+
+const slackText = ref('*Deploy failed* on `main`')
+const slackMrkdwn = ref(true)
+const slackEscape = ref(false)
+const slackPending = ref(false)
+const slackResult = ref<Sent | null>(null)
+
+async function sendSlack() {
+  slackPending.value = true
+  slackResult.value = null
+  try {
+    slackResult.value = await $fetch('/api/slack', {
+      method: 'POST',
+      body: { text: slackText.value, mrkdwn: slackMrkdwn.value, escape: slackEscape.value },
+    })
+  } finally {
+    slackPending.value = false
   }
 }
 
@@ -395,11 +419,28 @@ async function probe() {
         <ul>
           <li v-for="message in inbox" :key="message.at">
             <strong>{{ message.channel }}</strong>
-            <span v-if="message.from" class="hint"> from {{ message.from.name }}</span>
-            <span class="hint"> - {{ message.at }} - {{ message.raw.length }} bytes</span>
+            <!-- The event name in the channel's own words. Two deliveries of one
+                 message differ here and nowhere else. -->
+            <code v-if="message.type">{{ message.type }}</code>
+            <!-- Slack hands out a user id and no name, so the id has to do. -->
+            <span v-if="message.from" class="hint">
+              from {{ message.from.name ?? message.from.id }}</span
+            >
+            <span class="hint"> - {{ time(message.at) }} - {{ message.raw.length }} bytes</span>
             <!-- Channels that know their shape fill `text`, the generic webhook does not. -->
             <div v-if="message.text" class="quote">{{ message.text }}</div>
-            <pre v-else>{{ preview(message.raw) }}</pre>
+
+            <!-- Slack retries a delivery it considers failed, and says so. Not a
+                 second subscription, the very same event arriving twice. -->
+            <p v-if="message.headers['x-slack-retry-num']" class="fail">
+              retry {{ message.headers['x-slack-retry-num'] }}, reason
+              {{ message.headers['x-slack-retry-reason'] }}
+            </p>
+
+            <details>
+              <summary>body, this is where the identifying fields live</summary>
+              <pre>{{ preview(JSON.stringify(message.body, null, 2), 1200) }}</pre>
+            </details>
             <details>
               <summary>headers</summary>
               <pre>{{ JSON.stringify(message.headers, null, 2) }}</pre>
@@ -509,6 +550,40 @@ async function probe() {
         <!-- Telegram echoes the parsed message, so this is what actually arrived. -->
         <pre v-if="tgResult.sent">{{ tgResult.sent }}</pre>
       </template>
+    </section>
+    <section>
+      <h2>Layer 2: slack</h2>
+      <p class="hint">
+        Webhook shaped like Discord, so it sits on <code>post</code> too. Bold is a single
+        <code>*</code> here, not two. And <code>send</code> returns nothing: Slack answers with the
+        plain text <code>ok</code> and no message id, so the message can never be edited, deleted or
+        linked to.
+      </p>
+
+      <form @submit.prevent="sendSlack">
+        <label>
+          Text
+          <textarea v-model="slackText" rows="3" />
+        </label>
+
+        <label class="inline">
+          <input v-model="slackMrkdwn" type="checkbox" />
+          Let Slack parse it as mrkdwn
+        </label>
+
+        <label class="inline">
+          <input v-model="slackEscape" type="checkbox" />
+          Run it through <code>escapeMrkdwn</code> first
+        </label>
+
+        <button type="submit" :disabled="slackPending || !slackText.trim()">
+          {{ slackPending ? 'Sending...' : 'Send to Slack' }}
+        </button>
+      </form>
+
+      <p v-if="slackResult" :class="slackResult.ok ? 'ok' : 'fail'">
+        {{ slackResult.ok ? 'Slack accepted it, look in your channel' : slackResult.error }}
+      </p>
     </section>
   </main>
 </template>

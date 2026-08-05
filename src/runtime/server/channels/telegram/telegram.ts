@@ -1,5 +1,6 @@
 import { useRuntimeConfig } from '#imports'
 import { addListener, type Handler } from '../../core/listeners'
+import type { TelegramUpdate } from './types'
 import { createRequest, type RequestOptions } from '../../core/request'
 import { assertWithinLimit, escapeHtml } from './format'
 
@@ -141,8 +142,13 @@ async function webhookInfo() {
   }>('getWebhookInfo', {})
 }
 
-/** Register from a Nitro plugin. The returned function unregisters again. */
-function listen(handler: Handler): () => void {
+/**
+ * Register from a Nitro plugin. The returned function unregisters again.
+ *
+ * The handler gets the full update typed, see `TelegramUpdate`. Every field is
+ * documented at https://core.telegram.org/bots/api#update
+ */
+function listen(handler: Handler<TelegramUpdate>): () => void {
   return addListener('telegram', handler)
 }
 

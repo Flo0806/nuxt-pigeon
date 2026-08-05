@@ -1,39 +1,23 @@
-interface TelegramUser {
-  id: number
-  username?: string
-  first_name?: string
-}
+import type { TelegramUpdate } from './types'
 
-interface TelegramMessage {
-  text?: string
-  caption?: string
-  from?: TelegramUser
-  chat?: { id: number }
-}
-
-/** Telegram wraps everything in an update, and only one of these keys is ever set. */
-export interface TelegramUpdate {
-  update_id: number
-  message?: TelegramMessage
-  edited_message?: TelegramMessage
-  channel_post?: TelegramMessage
-  edited_channel_post?: TelegramMessage
-}
+const KINDS = ['message', 'edited_message', 'channel_post', 'edited_channel_post'] as const
 
 /**
- * Pulls out the three things every channel can answer, and leaves the rest in `raw`.
+ * Pulls out the few things every channel can answer, and leaves the rest in `raw`.
  * An update we do not know, a poll answer or a reaction for instance, simply has no
  * text: better empty than a wrong guess.
  */
 export function normalise(update: TelegramUpdate) {
-  const message =
-    update.message ?? update.edited_message ?? update.channel_post ?? update.edited_channel_post
+  // Which key is set **is** the event type, and Telegram only ever sets one.
+  const type = KINDS.find((kind) => update[kind])
+  const message = type && update[type]
 
   if (!message) {
     return {}
   }
 
   return {
+    type,
     // A photo carries its text in `caption`, not in `text`.
     text: message.text ?? message.caption,
     from: message.from && {

@@ -1,4 +1,5 @@
 import { createRequest, type RequestOptions } from './request'
+import { hmacSha256Base64, utf8 } from './verify'
 
 export interface PostOptions extends RequestOptions {
   /** Merged over what we set. An **empty value removes** a header. */
@@ -76,7 +77,7 @@ export function targetName(url: string, label?: string): string {
 /** A `whsec_` secret is base64 by convention, anything else is taken literally. */
 function signingKey(secret: string): Uint8Array<ArrayBuffer> {
   if (!secret.startsWith(SECRET_PREFIX)) {
-    return new TextEncoder().encode(secret)
+    return utf8(secret)
   }
 
   return Uint8Array.from(atob(secret.slice(SECRET_PREFIX.length)), (c) => c.charCodeAt(0))
@@ -84,22 +85,10 @@ function signingKey(secret: string): Uint8Array<ArrayBuffer> {
 
 /**
  * Standard Webhooks (standardwebhooks.com), so a receiver can verify with an existing
- * library instead of reading our docs. Web Crypto rather than `node:crypto`, so this
- * also runs on edge runtimes.
+ * library instead of reading our docs.
  */
 export async function signature(secret: string, id: string, timestamp: string, body: string) {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    signingKey(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  )
-  const signed = new Uint8Array(
-    await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${id}.${timestamp}.${body}`)),
-  )
-
-  return `v1,${btoa(String.fromCharCode(...signed))}`
+  return `v1,${await hmacSha256Base64(signingKey(secret), `${id}.${timestamp}.${body}`)}`
 }
 
 /**

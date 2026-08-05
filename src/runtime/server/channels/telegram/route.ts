@@ -9,7 +9,8 @@ import {
 import { useRuntimeConfig } from '#imports'
 import { dispatch } from '../../core/listeners'
 import { safeEqual } from '../../core/verify'
-import { normalise, type TelegramUpdate } from './normalise'
+import { normalise } from './normalise'
+import type { TelegramUpdate } from './types'
 import type { PigeonMessage } from '../../../types'
 
 const SECRET_HEADER = 'x-telegram-bot-api-secret-token'
@@ -36,7 +37,7 @@ export default defineEventHandler(async (event) => {
 
   const update = JSON.parse(raw) as TelegramUpdate
 
-  const message: PigeonMessage = {
+  const message: PigeonMessage<TelegramUpdate> = {
     channel: 'telegram',
     at: new Date().toISOString(),
     raw,

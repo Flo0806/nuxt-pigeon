@@ -8,6 +8,8 @@ export default defineNuxtConfig({
       discord: true,
       // token and chat id come from PIGEON_TELEGRAM_*
       telegram: { receive: true },
+      // url comes from PIGEON_SLACK_WEBHOOK_URL
+      slack: { receive: true },
     },
     webhook: {
       // Registers POST /api/_pigeon/webhook
