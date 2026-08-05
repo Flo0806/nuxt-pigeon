@@ -13,7 +13,16 @@ export default defineEventHandler(async (event) => {
       media: mediaUrl ? [{ url: mediaUrl }] : undefined,
     })
 
-    return { ok: true as const, sent: message.raw?.result?.text, id: message.id, url: message.url }
+    return {
+      ok: true as const,
+      sent: message.raw?.result?.text ?? message.raw?.result?.caption,
+      id: message.id,
+      url: message.url,
+      // The handle, so the page can change this exact message afterwards.
+      chatId: message.chatId,
+      messageId: message.messageId,
+      kind: message.kind,
+    }
   } catch (error) {
     return { ok: false as const, error: (error as Error).message }
   }

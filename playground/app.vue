@@ -356,11 +356,36 @@ const tgMediaUrl = ref('')
 const tgPending = ref(false)
 const tgResult = ref<Sent | null>(null)
 
+/** The handle from the last send: chat, message and what it is made of. */
+const tgSent = ref<{ chatId: string | number; messageId: number; kind: 'text' | 'media' } | null>(
+  null,
+)
+const tgEditText = ref('Deploy fixed')
+const tgEditMediaUrl = ref('')
+const tgButtonsOnly = ref(false)
+
+function keepHandle(answer: {
+  ok: boolean
+  chatId?: string | number
+  messageId?: number
+  kind?: string
+}) {
+  tgSent.value =
+    answer.ok && answer.chatId !== undefined && answer.messageId
+      ? {
+          chatId: answer.chatId,
+          messageId: answer.messageId,
+          kind: (answer.kind ?? 'text') as 'text' | 'media',
+        }
+      : null
+}
+
 async function sendTelegram() {
   tgPending.value = true
   tgResult.value = null
+  tgSent.value = null
   try {
-    tgResult.value = await $fetch('/api/telegram', {
+    const answer = await $fetch('/api/telegram', {
       method: 'POST',
       body: {
         text: tgText.value,
@@ -369,6 +394,39 @@ async function sendTelegram() {
         mediaUrl: tgMediaUrl.value,
       },
     })
+
+    tgResult.value = answer
+    keepHandle(answer)
+  } finally {
+    tgPending.value = false
+  }
+}
+
+async function changeTelegram(action: 'edit' | 'delete') {
+  if (!tgSent.value) return
+
+  tgPending.value = true
+  try {
+    const answer = await $fetch('/api/telegram-edit', {
+      method: 'POST',
+      body: {
+        action,
+        chatId: tgSent.value.chatId,
+        messageId: tgSent.value.messageId,
+        kind: tgSent.value.kind,
+        text: tgEditText.value,
+        mediaUrl: tgEditMediaUrl.value,
+        buttonsOnly: tgButtonsOnly.value,
+      },
+    })
+
+    tgResult.value = answer
+    if (action === 'delete') {
+      tgSent.value = null
+    } else {
+      // The kind can flip here: adding a picture turns a text message into a media one.
+      keepHandle(answer)
+    }
   } finally {
     tgPending.value = false
   }
@@ -795,6 +853,47 @@ async function probe() {
         </p>
         <!-- Telegram echoes the parsed message, so this is what actually arrived. -->
         <pre v-if="tgResult.sent">{{ tgResult.sent }}</pre>
+      </template>
+
+      <template v-if="tgSent">
+        <h3>Change it again</h3>
+        <p class="hint">
+          Telegram has <strong>four</strong> ways to change a message and refuses the wrong one.
+          There is one <code>edit</code>, and the handle decides: this message is
+          <code>{{ tgSent.kind }}</code
+          >, so new words go to
+          <code>{{ tgSent.kind === 'media' ? 'editMessageCaption' : 'editMessageText' }}</code
+          >. Give an image and it becomes <code>editMessageMedia</code>, give no words at all and
+          only the buttons change.
+        </p>
+
+        <label>
+          New text
+          <input v-model="tgEditText" :disabled="tgButtonsOnly" />
+        </label>
+
+        <label>
+          Image url, replaces the file or adds one to a text message
+          <input v-model="tgEditMediaUrl" placeholder="https://…/second.png" />
+        </label>
+
+        <label class="inline">
+          <input v-model="tgButtonsOnly" type="checkbox" />
+          No new words, only a button. That is the fourth method
+        </label>
+
+        <div class="row">
+          <button type="button" :disabled="tgPending" @click="changeTelegram('edit')">
+            {{ tgPending ? 'Working...' : 'Edit it' }}
+          </button>
+          <button type="button" :disabled="tgPending" @click="changeTelegram('delete')">
+            Delete it
+          </button>
+        </div>
+
+        <p class="hint">
+          Deleting is Telegram's own rule: only <strong>within 48 hours</strong> of sending.
+        </p>
       </template>
     </section>
     <section>

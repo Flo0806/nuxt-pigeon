@@ -1,11 +1,14 @@
 import { useRuntimeConfig } from '#imports'
 import { addListener, type Handler } from '../../core/listeners'
 import type {
+  TelegramDeleteResult,
   TelegramEnvelope,
+  TelegramHandle,
   TelegramMessagePayload,
   TelegramResult,
   TelegramUpdate,
 } from './types'
+import { assertNoMediaRemoval, buildEditMedia, editMethod, messageKind } from './edit'
 import { createRequest, type RequestOptions } from '../../core/request'
 import { toResult, type RawResponse } from '../../core/result'
 import { assertWithinLimit, escapeHtml } from './format'
@@ -37,6 +40,19 @@ export interface TelegramSendOptions extends RequestOptions {
   /** Inline keyboard, passed through untouched. */
   replyMarkup?: unknown
 }
+
+/**
+ * Left out against sending, because they only apply while a message is being created:
+ * `chatId` comes from the handle, `disableNotification` has already happened, and
+ * `replyToMessageId` cannot be changed afterwards.
+ *
+ * `media` takes **one** item here. An album is several messages, and Telegram edits
+ * exactly one at a time.
+ */
+export type TelegramEditOptions = Omit<
+  TelegramSendOptions,
+  'chatId' | 'disableNotification' | 'replyToMessageId'
+>
 
 function settings() {
   const { telegram } = useRuntimeConfig().pigeon.channels
@@ -136,6 +152,7 @@ function result(
     url: username && message ? `https://t.me/${username}/${message.message_id}` : undefined,
     chatId,
     messageId: message?.message_id,
+    kind: messageKind(message),
   }
 }
 
@@ -178,6 +195,99 @@ async function send(text: string, options: TelegramSendOptions & RequestOptions 
       options,
     ),
   )
+}
+
+function target(handle: TelegramHandle): { chat_id: string | number; message_id: number } {
+  if (!handle.messageId) {
+    throw new Error(
+      'This Telegram message has no id, so it cannot be changed or removed. ' +
+        'Pass the result of `send`, or a handle with `chatId` and `messageId`',
+    )
+  }
+
+  return { chat_id: handle.chatId, message_id: handle.messageId }
+}
+
+/**
+ * One verb for the four methods Telegram splits this into. Which one runs follows from
+ * the handle and from what you pass, see `editMethod`:
+ *
+ * - text on a text message changes the text, on a photo it changes the caption
+ * - `media` replaces the file, and since Bot API 7.11 it can also **add** one to a
+ *   message that had none
+ * - leaving the text out and passing `replyMarkup` changes only the buttons
+ *
+ * The caption limit is 1024 against 4096 for a text, so the same string can be fine
+ * before an edit and too long after one. That is checked here, not by Telegram.
+ */
+async function edit(
+  handle: TelegramHandle,
+  text?: string,
+  options: TelegramEditOptions & RequestOptions = {},
+) {
+  assertNoMediaRemoval(options.media)
+
+  const fields = { ...target(handle), reply_markup: options.replyMarkup }
+  const method = editMethod({ text, media: options.media, kind: handle.kind })
+
+  let body: Record<string, unknown> | FormData
+
+  if (method === 'editMessageMedia') {
+    if (options.media!.length > 1) {
+      throw new Error(
+        `Telegram changes one message, and one message holds one file, got ${options.media!.length}. ` +
+          'An album is several messages and cannot be edited into or out of one',
+      )
+    }
+
+    if (text !== undefined) {
+      assertCaptionLimit(text)
+    }
+
+    body = await buildEditMedia(
+      options.media![0]!,
+      fields,
+      { caption: text, parse_mode: options.parseMode },
+      options,
+    )
+  } else if (method === 'editMessageCaption') {
+    assertCaptionLimit(text!)
+    body = { ...fields, caption: text, parse_mode: options.parseMode }
+  } else if (method === 'editMessageText') {
+    assertWithinLimit(text!)
+    body = {
+      ...fields,
+      text,
+      parse_mode: options.parseMode,
+      link_preview_options: options.disableLinkPreview ? { is_disabled: true } : undefined,
+    }
+  } else {
+    body = fields
+  }
+
+  return result(handle.chatId, await callApiRaw<TelegramMessagePayload>(method, body, options))
+}
+
+/**
+ * Gone, and Telegram answers `true` rather than the message. Two limits are the
+ * service's own: a bot may only delete **within 48 hours**, and service messages about
+ * a supergroup, channel or forum topic creation can never be deleted.
+ */
+async function remove(
+  handle: TelegramHandle,
+  options: RequestOptions = {},
+): Promise<TelegramDeleteResult> {
+  const response = await callApiRaw<boolean>('deleteMessage', target(handle), options)
+
+  return {
+    ...toResult('telegram', response),
+    channel: 'telegram',
+    // Kept so a log line after the fact still says which message this was.
+    id: handle.messageId?.toString(),
+    chatId: handle.chatId,
+    messageId: handle.messageId,
+    kind: handle.kind,
+  }
 }
 
 /**
@@ -228,4 +338,13 @@ function listen(handler: Handler<TelegramUpdate>): () => void {
   return addListener('telegram', handler)
 }
 
-export const telegram = { send, listen, setWebhook, deleteWebhook, webhookInfo, escapeHtml }
+export const telegram = {
+  send,
+  edit,
+  delete: remove,
+  listen,
+  setWebhook,
+  deleteWebhook,
+  webhookInfo,
+  escapeHtml,
+}

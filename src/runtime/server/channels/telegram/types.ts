@@ -1,4 +1,5 @@
 import type { PigeonResult } from '../../core/result'
+import type { TelegramKind } from './edit'
 
 /**
  * The fields worth knowing about, the rest stays reachable through the index
@@ -41,11 +42,28 @@ export interface TelegramEnvelope<T> {
   parameters?: { retry_after?: number; migrate_to_chat_id?: number }
 }
 
-export interface TelegramResult extends PigeonResult<TelegramEnvelope<TelegramMessagePayload>> {
-  channel: 'telegram'
+/**
+ * Everything needed to point at a message again. `send` returns it as part of its
+ * result, and it is all `edit` and `delete` ask for, so a message id kept in your own
+ * database can be turned back into a handle without guessing.
+ */
+export interface TelegramHandle {
   /** Where it actually went, which is not always the configured chat. */
   chatId: string | number
   messageId?: number
+  /** Decides whether the words live in `text` or in `caption`. */
+  kind: TelegramKind
+}
+
+export interface TelegramResult
+  extends PigeonResult<TelegramEnvelope<TelegramMessagePayload>>, TelegramHandle {
+  channel: 'telegram'
+}
+
+/** `deleteMessage` answers with `true`, not with the message. */
+export interface TelegramDeleteResult
+  extends PigeonResult<TelegramEnvelope<boolean>>, TelegramHandle {
+  channel: 'telegram'
 }
 
 /** https://core.telegram.org/bots/api#message */
