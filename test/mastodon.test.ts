@@ -4,10 +4,10 @@ import {
   countCharacters,
   pageIds,
   plainText,
-  type MastodonLimits,
+  type MastodonTextLimits,
 } from '../src/runtime/server/channels/mastodon/format'
 
-const limits: MastodonLimits = { maxCharacters: 500, charactersReservedPerUrl: 23 }
+const limits: MastodonTextLimits = { maxCharacters: 500, charactersReservedPerUrl: 23 }
 
 describe('countCharacters', () => {
   it('counts plain text as its length', () => {

@@ -2,9 +2,19 @@
 export const MASTODON_DEFAULT_LIMIT = 500
 export const MASTODON_DEFAULT_URL_COST = 23
 
-export interface MastodonLimits {
+/** Mastodon's own defaults, used when the instance cannot be asked. */
+export const MASTODON_DEFAULT_ATTACHMENTS = 4
+export const MASTODON_DEFAULT_IMAGE_SIZE = 10 * 1024 * 1024
+
+/** What counting a text needs, and nothing more. */
+export interface MastodonTextLimits {
   maxCharacters: number
   charactersReservedPerUrl: number
+}
+
+export interface MastodonLimits extends MastodonTextLimits {
+  maxAttachments: number
+  imageSizeLimit: number
 }
 
 const URL_PATTERN = /https?:\/\/\S+/g
@@ -18,7 +28,7 @@ const REMOTE_MENTION_DOMAIN = /(@[a-z0-9_]+)@[a-z0-9.-]+/gi
  * nothing. Both rules are documented, and a plain `text.length` rejects posts the
  * instance would happily accept.
  */
-export function countCharacters(text: string, limits: MastodonLimits): number {
+export function countCharacters(text: string, limits: MastodonTextLimits): number {
   const withoutDomains = text.replace(REMOTE_MENTION_DOMAIN, '$1')
   const urls = withoutDomains.match(URL_PATTERN) ?? []
   const urlChars = urls.reduce((sum, url) => sum + url.length, 0)
@@ -26,7 +36,7 @@ export function countCharacters(text: string, limits: MastodonLimits): number {
   return withoutDomains.length - urlChars + urls.length * limits.charactersReservedPerUrl
 }
 
-export function assertWithinLimit(text: string, limits: MastodonLimits): void {
+export function assertWithinLimit(text: string, limits: MastodonTextLimits): void {
   const length = countCharacters(text, limits)
 
   if (length > limits.maxCharacters) {

@@ -3,7 +3,16 @@
 /** `private` means followers only, `direct` only the mentioned accounts. */
 export type MastodonVisibility = 'public' | 'unlisted' | 'private' | 'direct'
 
+import type { Media } from '../../core/media'
+
 export interface MastodonPostOptions {
+  /**
+   * Up to four, and **never a url**: `/api/v2/media` takes a multipart file only, so
+   * anything given as a url is fetched first. A large upload answers 202 while it is
+   * still processing, and posting before that finishes is refused, so the upload
+   * waits.
+   */
+  media?: Media[]
   visibility?: MastodonVisibility
   /** Content warning. The post is collapsed behind this text. */
   spoilerText?: string

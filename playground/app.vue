@@ -227,6 +227,7 @@ const mastoText = ref(
 )
 const mastoVisibility = ref('direct')
 const mastoSpoiler = ref('')
+const mastoMediaUrl = ref('')
 const mastoPending = ref(false)
 const mastoResult = ref<{ ok: boolean; url?: string; error?: string } | null>(null)
 
@@ -248,6 +249,7 @@ async function sendMastodon() {
         text: mastoText.value,
         visibility: mastoVisibility.value,
         spoilerText: mastoSpoiler.value,
+        mediaUrl: mastoMediaUrl.value,
       },
     })
   } finally {
@@ -843,6 +845,17 @@ async function probe() {
           Content warning
           <input v-model="mastoSpoiler" placeholder="optional, collapses the post" />
         </label>
+
+        <label>
+          Image url, empty posts text only
+          <input v-model="mastoMediaUrl" placeholder="https://…/something.png" />
+        </label>
+
+        <p v-if="mastoMediaUrl" class="hint">
+          Mastodon takes <strong>no url</strong>, so this is downloaded and uploaded again. A large
+          file answers 202 while it is still being processed, and the post waits for that before it
+          goes out.
+        </p>
 
         <button type="submit" :disabled="mastoPending || !mastoText.trim()">
           {{ mastoPending ? 'Posting...' : 'Post' }}

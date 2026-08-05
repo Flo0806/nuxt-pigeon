@@ -1,13 +1,17 @@
 import { useRuntimeConfig } from '#imports'
 import { addListener, type Handler } from '../../core/listeners'
 import { createRequest, type RequestOptions } from '../../core/request'
+import type { Media } from '../../core/media'
 import {
   assertWithinLimit,
+  MASTODON_DEFAULT_ATTACHMENTS,
+  MASTODON_DEFAULT_IMAGE_SIZE,
   MASTODON_DEFAULT_LIMIT,
   MASTODON_DEFAULT_URL_COST,
   pageIds,
   type MastodonLimits,
 } from './format'
+import { assertAttachmentCount, uploadMedia } from './media'
 import type {
   MastodonNotification,
   MastodonNotificationOptions,
@@ -62,13 +66,20 @@ async function limits(instance: string): Promise<MastodonLimits> {
   const fallback: MastodonLimits = {
     maxCharacters: MASTODON_DEFAULT_LIMIT,
     charactersReservedPerUrl: MASTODON_DEFAULT_URL_COST,
+    maxAttachments: MASTODON_DEFAULT_ATTACHMENTS,
+    imageSizeLimit: MASTODON_DEFAULT_IMAGE_SIZE,
   }
 
   let resolved = fallback
   try {
     const data = await createRequest({ retries: 1 })<{
       configuration?: {
-        statuses?: { max_characters?: number; characters_reserved_per_url?: number }
+        statuses?: {
+          max_characters?: number
+          characters_reserved_per_url?: number
+          max_media_attachments?: number
+        }
+        media_attachments?: { image_size_limit?: number }
       }
     }>(new URL('/api/v2/instance', instance).toString())
 
@@ -77,6 +88,10 @@ async function limits(instance: string): Promise<MastodonLimits> {
       maxCharacters: statuses?.max_characters ?? fallback.maxCharacters,
       charactersReservedPerUrl:
         statuses?.characters_reserved_per_url ?? fallback.charactersReservedPerUrl,
+      // Both numbers vary by instance as well, so they come from the same call.
+      maxAttachments: statuses?.max_media_attachments ?? fallback.maxAttachments,
+      imageSizeLimit:
+        data.configuration?.media_attachments?.image_size_limit ?? fallback.imageSizeLimit,
     }
   } catch {
     // Keep the defaults, the instance decides in the end anyway.
@@ -88,10 +103,24 @@ async function limits(instance: string): Promise<MastodonLimits> {
 }
 
 /** Public, so this lands on your timeline where everyone can read it. */
-async function post(text: string, options: MastodonPostOptions & RequestOptions = {}) {
+async function post(
+  text: string,
+  options: MastodonPostOptions & RequestOptions & { media?: Media[] } = {},
+) {
   const { instance, token } = credentials()
+  const known = await limits(instance)
 
-  assertWithinLimit(text, await limits(instance))
+  assertWithinLimit(text, known)
+
+  // Every attachment is uploaded first and referenced by id, Mastodon takes no url.
+  let mediaIds: string[] | undefined
+  if (options.media?.length) {
+    assertAttachmentCount(options.media.length, known)
+    mediaIds = []
+    for (const item of options.media) {
+      mediaIds.push(await uploadMedia(instance, token, item, known, options))
+    }
+  }
 
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
   if (options.idempotencyKey) {
@@ -109,6 +138,7 @@ async function post(text: string, options: MastodonPostOptions & RequestOptions 
       language: options.language,
       in_reply_to_id: options.inReplyToId,
       scheduled_at: options.scheduledAt,
+      media_ids: mediaIds,
     },
   })
 }
