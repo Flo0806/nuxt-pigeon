@@ -25,7 +25,15 @@ export default defineEventHandler(async (event) => {
         : undefined,
     })
 
-    return { ok: true as const, uri: record.id, url: record.url }
+    return {
+      ok: true as const,
+      uri: record.id,
+      url: record.url,
+      // The handle: deleteRecord wants exactly these three.
+      repo: record.repo,
+      collection: record.collection,
+      rkey: record.rkey,
+    }
   } catch (error) {
     return { ok: false as const, error: (error as Error).message }
   }

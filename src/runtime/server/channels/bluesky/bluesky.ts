@@ -6,7 +6,10 @@ import { assertWithinLimit, detectRanges } from './format'
 import { assertImageCount, externalEmbed, imagesEmbed, uploadBlob } from './media'
 import { withSession, type Session } from './session'
 import type {
+  BlueskyCommit,
+  BlueskyDeleteResult,
   BlueskyFacet,
+  BlueskyHandle,
   BlueskyNotification,
   BlueskyNotificationOptions,
   BlueskyPostOptions,
@@ -46,8 +49,9 @@ function procedure<T>(
   method: string,
   session: Session,
   body: Record<string, unknown>,
+  options: RequestOptions = {},
 ): Promise<RawResponse<T>> {
-  return createRequest().raw<T>(new URL(`/xrpc/${method}`, service).toString(), {
+  return createRequest(options).raw<T>(new URL(`/xrpc/${method}`, service).toString(), {
     method: 'POST',
     headers: { Authorization: `Bearer ${session.accessJwt}` },
     body,
@@ -237,6 +241,50 @@ async function post(text: string, options: BlueskyPostOptions & RequestOptions =
 }
 
 /**
+ * Removes the record from your repository. There is **no `edit`** to go with it, and
+ * that is not a gap here: `putRecord` on a post answers happily and the appview
+ * ignores it, so an edit would look like it worked and change nothing. Bluesky's own
+ * words: *"The Bluesky service prohibits updating posts, so appview intentionally
+ * ignores it."* https://github.com/bluesky-social/atproto/discussions/3038
+ *
+ * Deleting is idempotent by design, so removing the same record twice is not an error.
+ */
+async function remove(handle: BlueskyHandle, options: RequestOptions = {}) {
+  const { service, identifier, password } = credentials()
+
+  if (!handle.rkey) {
+    throw new Error(
+      'This Bluesky post has no record key, so it cannot be removed. Pass the result ' +
+        'of `post`, or a handle with `repo`, `collection` and `rkey`',
+    )
+  }
+
+  return withSession(service, identifier, password, async (session) => {
+    const response = await procedure<BlueskyCommit>(
+      service,
+      'com.atproto.repo.deleteRecord',
+      session,
+      {
+        repo: handle.repo || session.did,
+        collection: handle.collection,
+        rkey: handle.rkey,
+      },
+      options,
+    )
+
+    return {
+      ...toResult('bluesky', response),
+      channel: 'bluesky',
+      // Kept so a log line after the fact still says which post this was.
+      id: `at://${handle.repo || session.did}/${handle.collection}/${handle.rkey}`,
+      repo: handle.repo || session.did,
+      collection: handle.collection,
+      rkey: handle.rkey,
+    } satisfies BlueskyDeleteResult
+  })
+}
+
+/**
  * Polling, there is no webhook. The cursor pages **backwards into history**, so
  * finding what is new means fetching the newest page and comparing, not asking for
  * everything since a marker.
@@ -266,4 +314,4 @@ function listen(handler: Handler<BlueskyNotification>): () => void {
   return addListener('bluesky', handler)
 }
 
-export const bluesky = { post, listen, notifications }
+export const bluesky = { post, delete: remove, listen, notifications }

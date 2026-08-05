@@ -248,11 +248,15 @@ const bskyBytes = computed(() => byteLength(bskyText.value))
 /** What would be linked, and at which byte offsets. Nothing is sent for this. */
 const bskyRanges = computed(() => detectRanges(bskyText.value))
 
+/** `deleteRecord` wants these three, and nothing else. There is no `edit` to go with it. */
+const bskySent = ref<{ repo: string; collection: string; rkey: string } | null>(null)
+
 async function sendBluesky() {
   bskyPending.value = true
   bskyResult.value = null
+  bskySent.value = null
   try {
-    bskyResult.value = await $fetch('/api/bluesky', {
+    const answer = await $fetch('/api/bluesky', {
       method: 'POST',
       body: {
         text: bskyText.value,
@@ -264,6 +268,26 @@ async function sendBluesky() {
         cardDescription: bskyCardDescription.value,
       },
     })
+
+    bskyResult.value = answer
+    if (answer.ok && answer.repo && answer.rkey) {
+      bskySent.value = { repo: answer.repo, collection: answer.collection, rkey: answer.rkey }
+    }
+  } finally {
+    bskyPending.value = false
+  }
+}
+
+async function deleteBluesky() {
+  if (!bskySent.value) return
+
+  bskyPending.value = true
+  try {
+    bskyResult.value = await $fetch('/api/bluesky-delete', {
+      method: 'POST',
+      body: bskySent.value,
+    })
+    bskySent.value = null
   } finally {
     bskyPending.value = false
   }
@@ -1222,6 +1246,20 @@ async function probe() {
       <p v-if="bskyResult" :class="bskyResult.ok ? 'ok' : 'fail'">
         {{ bskyResult.ok ? `Posted, ${bskyResult.uri}` : bskyResult.error }}
       </p>
+
+      <template v-if="bskySent">
+        <h3>Remove it again</h3>
+        <p class="hint">
+          <strong>Only deleting.</strong> There is no <code>bluesky.edit</code>, and that is not a
+          gap here: <code>putRecord</code> on a post answers with a 200 and the appview ignores the
+          change. An edit would look like it worked and do nothing, which is worse than not offering
+          it.
+        </p>
+
+        <button type="button" :disabled="bskyPending" @click="deleteBluesky">
+          {{ bskyPending ? 'Working...' : 'Delete it' }}
+        </button>
+      </template>
     </section>
   </main>
 </template>

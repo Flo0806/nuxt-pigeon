@@ -15,11 +15,29 @@ export interface BlueskyRecordRef {
  * `id` is the `at://` uri, because that is what Bluesky calls the post. The three
  * parts below are the same thing taken apart, which is the form `deleteRecord` wants.
  */
-export interface BlueskyResult extends PigeonResult<BlueskyRecordRef | undefined> {
-  channel: 'bluesky'
+/**
+ * The three parts `deleteRecord` wants. `send` hands them over as part of its result,
+ * and an `at://` uri kept in your own database splits into exactly these.
+ */
+export interface BlueskyHandle {
   repo: string
   collection: string
   rkey?: string
+}
+
+export interface BlueskyResult extends PigeonResult<BlueskyRecordRef | undefined>, BlueskyHandle {
+  channel: 'bluesky'
+}
+
+/** What `deleteRecord` answers with, and it is not much. */
+export interface BlueskyCommit {
+  commit?: { cid: string; rev: string }
+  [key: string]: unknown
+}
+
+export interface BlueskyDeleteResult
+  extends PigeonResult<BlueskyCommit | undefined>, BlueskyHandle {
+  channel: 'bluesky'
 }
 
 /** **UTF-8 byte** offsets, not character positions. */
