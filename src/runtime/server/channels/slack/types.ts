@@ -31,6 +31,21 @@ export interface SlackEvent {
  * What Slack POSTs to the events route. See
  * https://api.slack.com/apis/events-api#receiving-events
  */
+/**
+ * What the Web API answers with. It is **not** an error when `ok` is false and the
+ * status is still 200, which is why `assertOk` exists.
+ */
+export interface SlackMessage {
+  ok?: boolean
+  error?: string
+  /** Doubles as the message id, and as the sort key in a thread. */
+  ts?: string
+  /** The id it actually landed in, which is not always the one that was asked for. */
+  channel?: string
+  message?: { text?: string; blocks?: unknown[]; [key: string]: unknown }
+  [key: string]: unknown
+}
+
 export interface SlackEnvelope {
   /** `event_callback` for a real event, `url_verification` only during setup. */
   type: string

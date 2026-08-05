@@ -75,6 +75,21 @@ export interface SlackOptions {
   /** Falls back to `PIGEON_SLACK_WEBHOOK_URL`. The url itself is the credential. */
   webhookUrl?: string
   /**
+   * Falls back to `PIGEON_SLACK_BOT_TOKEN`, an `xoxb-` token. **Set it and Slack can
+   * do everything the other channels can**: pick a channel per message, reply in a
+   * thread, edit, delete. Without it only the incoming webhook is available, which
+   * answers `ok` and gives no message id.
+   *
+   * The app that already receives your events has one, under OAuth & Permissions.
+   * Scopes: `chat:write`, plus `chat:write.public` to post without being invited.
+   */
+  botToken?: string
+  /**
+   * Default destination for the bot token, a channel **id** like `C01ABC2DEF`, not a
+   * name. Falls back to `PIGEON_SLACK_CHANNEL`, and every call can override it.
+   */
+  channel?: string
+  /**
    * Registers the Events API route. Slack has no polling, so this needs a publicly
    * reachable address even in development.
    */
@@ -146,7 +161,7 @@ declare module 'nuxt/schema' {
       channels: {
         discord: { webhookUrl: string }
         telegram: { token: string; chatId: string; secretToken: string; route: string }
-        slack: { webhookUrl: string; signingSecret: string }
+        slack: { webhookUrl: string; signingSecret: string; botToken: string; channel: string }
         ntfy: { server: string; topic: string; token: string }
         mastodon: { instance: string; token: string; intervalMs: number }
         bluesky: {
@@ -210,7 +225,12 @@ export default defineNuxtModule<ModuleOptions>({
           secretToken: '',
           route: telegramRoute,
         },
-        slack: { webhookUrl: slackOptions.webhookUrl || '', signingSecret: '' },
+        slack: {
+          webhookUrl: slackOptions.webhookUrl || '',
+          signingSecret: '',
+          botToken: slackOptions.botToken || '',
+          channel: slackOptions.channel || '',
+        },
         ntfy: { server: ntfyOptions.server || '', topic: ntfyOptions.topic || '', token: '' },
         mastodon: {
           instance: mastodonOptions.instance || '',

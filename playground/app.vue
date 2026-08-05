@@ -218,14 +218,57 @@ const slackEscape = ref(false)
 const slackPending = ref(false)
 const slackResult = ref<Sent | null>(null)
 
+const slackChannelId = ref('')
+const slackThreadTs = ref('')
+
+/** Only bot mode hands one back. Through the webhook this stays null. */
+const slackSent = ref<{ channelId: string; id: string } | null>(null)
+const slackEditText = ref('Deploy fixed on main')
+
 async function sendSlack() {
   slackPending.value = true
   slackResult.value = null
+  slackSent.value = null
   try {
-    slackResult.value = await $fetch('/api/slack', {
+    const answer = await $fetch('/api/slack', {
       method: 'POST',
-      body: { text: slackText.value, mrkdwn: slackMrkdwn.value, escape: slackEscape.value },
+      body: {
+        text: slackText.value,
+        mrkdwn: slackMrkdwn.value,
+        escape: slackEscape.value,
+        channelId: slackChannelId.value,
+        threadTs: slackThreadTs.value,
+      },
     })
+
+    slackResult.value = answer
+    if (answer.ok && answer.id && answer.channelId) {
+      slackSent.value = { channelId: answer.channelId, id: answer.id }
+    }
+  } finally {
+    slackPending.value = false
+  }
+}
+
+async function changeSlack(action: 'edit' | 'delete') {
+  if (!slackSent.value) return
+
+  slackPending.value = true
+  try {
+    const answer = await $fetch('/api/slack-edit', {
+      method: 'POST',
+      body: {
+        action,
+        channelId: slackSent.value.channelId,
+        id: slackSent.value.id,
+        text: slackEditText.value,
+      },
+    })
+
+    slackResult.value = answer
+    if (action === 'delete') {
+      slackSent.value = null
+    }
   } finally {
     slackPending.value = false
   }
@@ -1006,10 +1049,11 @@ async function probe() {
     <section>
       <h2>Layer 2: slack</h2>
       <p class="hint">
-        Webhook shaped like Discord, so it sits on <code>post</code> too. Bold is a single
-        <code>*</code> here, not two. And <code>send</code> returns nothing: Slack answers with the
-        plain text <code>ok</code> and no message id, so the message can never be edited, deleted or
-        linked to.
+        The only channel with <strong>two ways in</strong>. With
+        <code>PIGEON_SLACK_BOT_TOKEN</code> this is <code>chat.postMessage</code>: a channel per
+        message, threads, editing, deleting. Without one it is the incoming webhook, which answers
+        with the plain text <code>ok</code> and no id, so nothing can be pointed at afterwards. Bold
+        is a single <code>*</code> here, not two.
       </p>
 
       <form @submit.prevent="sendSlack">
@@ -1028,6 +1072,22 @@ async function probe() {
           Run it through <code>escapeMrkdwn</code> first
         </label>
 
+        <label>
+          Channel id, empty uses <code>PIGEON_SLACK_CHANNEL</code>
+          <input v-model="slackChannelId" placeholder="C01ABC2DEF" />
+        </label>
+
+        <label>
+          Reply in a thread: the id of the message to answer
+          <input v-model="slackThreadTs" placeholder="1503435956.000247" />
+        </label>
+
+        <p class="hint">
+          A channel <strong>id</strong>, never <code>#deploys</code>. It is at the bottom of the
+          channel details, and at the end of the channel url. Uploading needs the bot in the
+          channel, so <code>/invite</code> it once.
+        </p>
+
         <button type="submit" :disabled="slackPending || !slackText.trim()">
           {{ slackPending ? 'Sending...' : 'Send to Slack' }}
         </button>
@@ -1036,6 +1096,31 @@ async function probe() {
       <p v-if="slackResult" :class="slackResult.ok ? 'ok' : 'fail'">
         {{ slackResult.ok ? 'Slack accepted it, look in your channel' : slackResult.error }}
       </p>
+
+      <template v-if="slackSent">
+        <h3>Change it again</h3>
+        <p class="hint">
+          Channel <code>{{ slackSent.channelId }}</code
+          >, ts <code>{{ slackSent.id }}</code
+          >. The <code>ts</code> is both the id and the sort key, and it is what a thread reply
+          points at. Editing sends the blocks along again, because <code>chat.update</code> drops
+          them when only text arrives.
+        </p>
+
+        <label>
+          New text
+          <input v-model="slackEditText" />
+        </label>
+
+        <div class="row">
+          <button type="button" :disabled="slackPending" @click="changeSlack('edit')">
+            {{ slackPending ? 'Working...' : 'Edit it' }}
+          </button>
+          <button type="button" :disabled="slackPending" @click="changeSlack('delete')">
+            Delete it
+          </button>
+        </div>
+      </template>
     </section>
     <section>
       <h2>Layer 2: ntfy</h2>
