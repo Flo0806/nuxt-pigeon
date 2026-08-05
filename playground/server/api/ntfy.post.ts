@@ -20,7 +20,8 @@ export default defineEventHandler(async (event) => {
       media: mediaUrl ? { url: mediaUrl } : undefined,
     })
 
-    return { ok: true as const, id: published.id }
+    // The handle: topic plus id, and that is all edit and delete need.
+    return { ok: true as const, id: published.id, topic: published.topic }
   } catch (error) {
     return { ok: false as const, error: (error as Error).message }
   }

@@ -5,7 +5,7 @@ import { isUrlMedia, resolveMedia } from '../../core/media'
 import { toResult, type RawResponse } from '../../core/result'
 import { assertWithinLimit } from './format'
 import { uploadHeaders } from './media'
-import type { NtfyMessage, NtfyResult, NtfySendOptions } from './types'
+import type { NtfyHandle, NtfyMessage, NtfyResult, NtfySendOptions } from './types'
 
 const DEFAULT_SERVER = 'https://ntfy.sh'
 
@@ -62,6 +62,9 @@ async function send(text: string, options: NtfySendOptions & RequestOptions = {}
     email: options.email,
     call: options.call,
     delay: options.delay,
+    // Ties messages together. Publishing again with the same one **replaces** the
+    // notification on every client instead of adding a second one.
+    sequence_id: options.sequenceId,
   }
 
   // Bytes take a completely different route: the body **is** the file, so the topic
@@ -94,13 +97,75 @@ async function send(text: string, options: NtfySendOptions & RequestOptions = {}
     )
   }
 
-  // ntfy has no way to edit or delete afterwards, so the id is for correlating logs.
   return {
     ...toResult('ntfy', response),
     channel: 'ntfy',
-    id: response._data?.id,
+    // Either the id you chose, or the one ntfy assigned. Both work as a handle.
+    id: options.sequenceId ?? response._data?.id,
     topic,
   } satisfies NtfyResult
 }
 
-export const ntfy = { send }
+function sequence(handle: NtfyHandle): { topic: string; id: string } {
+  const { topic: configured } = settings()
+  const topic = handle.topic || configured
+
+  if (!topic || !handle.id) {
+    throw new Error(
+      'This ntfy message has no topic or id, so it cannot be changed or removed. ' +
+        'Pass the result of `send`, or a handle with `topic` and `id`',
+    )
+  }
+
+  return { topic, id: handle.id }
+}
+
+/**
+ * Replaces the notification on every client that has it. Not a separate endpoint:
+ * ntfy links messages through a **sequence id**, and publishing again with the same
+ * one replaces rather than adds. So this is `send` with the id carried over, which is
+ * why every send option works here too.
+ *
+ * Needs an ntfy server of **2.16.0 or newer**, released 19 January 2026. An older
+ * self hosted instance simply publishes a second message instead.
+ */
+async function edit(
+  handle: NtfyHandle,
+  text: string,
+  options: NtfySendOptions & RequestOptions = {},
+) {
+  const { topic, id } = sequence(handle)
+
+  return send(text, { ...options, topic, sequenceId: id })
+}
+
+/**
+ * Removes the notification from the clients that have it, `DELETE /<topic>/<id>`.
+ *
+ * Same version requirement as `edit`.
+ */
+async function remove(handle: NtfyHandle, options: RequestOptions = {}) {
+  const { server, token } = settings()
+  const { topic, id } = sequence(handle)
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
+
+  const response = await post<NtfyMessage>(
+    new URL(`/${topic}/${id}`, server).toString(),
+    undefined,
+    {
+      ...options,
+      method: 'DELETE',
+      headers,
+      label: 'ntfy',
+    },
+  )
+
+  return {
+    ...toResult('ntfy', response),
+    channel: 'ntfy',
+    id,
+    topic,
+  } satisfies NtfyResult
+}
+
+export const ntfy = { send, edit, delete: remove }

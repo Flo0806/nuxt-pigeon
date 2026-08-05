@@ -385,6 +385,7 @@ async function changeMastodon(action: 'edit' | 'delete') {
 interface Published {
   ok: boolean
   id?: string
+  topic?: string
   error?: string
 }
 
@@ -400,9 +401,15 @@ const ntfyResult = ref<Published | null>(null)
 /** The limit is in bytes, so this is what actually counts against 4096. */
 const ntfyBytes = computed(() => new TextEncoder().encode(ntfyText.value).length)
 
+/** Topic plus id. The id may be ntfy's, or one you chose yourself. */
+const ntfySent = ref<{ topic: string; id: string } | null>(null)
+const ntfyEditText = ref('Deploy fixed on main')
+const ntfyEditTitle = ref('nuxt-pigeon')
+
 async function sendNtfy() {
   ntfyPending.value = true
   ntfyResult.value = null
+  ntfySent.value = null
   try {
     ntfyResult.value = await $fetch('/api/ntfy', {
       method: 'POST',
@@ -415,6 +422,35 @@ async function sendNtfy() {
         mediaUrl: ntfyMediaUrl.value,
       },
     })
+  } finally {
+    ntfyPending.value = false
+  }
+
+  if (ntfyResult.value?.ok && ntfyResult.value.id && ntfyResult.value.topic) {
+    ntfySent.value = { topic: ntfyResult.value.topic, id: ntfyResult.value.id }
+  }
+}
+
+async function changeNtfy(action: 'edit' | 'delete') {
+  if (!ntfySent.value) return
+
+  ntfyPending.value = true
+  try {
+    const answer = await $fetch('/api/ntfy-edit', {
+      method: 'POST',
+      body: {
+        action,
+        topic: ntfySent.value.topic,
+        id: ntfySent.value.id,
+        text: ntfyEditText.value,
+        title: ntfyEditTitle.value,
+      },
+    })
+
+    ntfyResult.value = answer
+    if (action === 'delete') {
+      ntfySent.value = null
+    }
   } finally {
     ntfyPending.value = false
   }
@@ -1058,6 +1094,37 @@ async function probe() {
       <p v-if="ntfyResult" :class="ntfyResult.ok ? 'ok' : 'fail'">
         {{ ntfyResult.ok ? `Published, id ${ntfyResult.id}` : ntfyResult.error }}
       </p>
+
+      <template v-if="ntfySent">
+        <h3>Change it again</h3>
+        <p class="hint">
+          Topic <code>{{ ntfySent.topic }}</code
+          >, id <code>{{ ntfySent.id }}</code
+          >. An update is not a separate endpoint: ntfy ties messages together through a
+          <strong>sequence id</strong>, and publishing again with the same one replaces the
+          notification on your phone instead of adding a second one. Needs an ntfy server of
+          <strong>2.16.0</strong> or newer.
+        </p>
+
+        <label>
+          New text
+          <input v-model="ntfyEditText" />
+        </label>
+
+        <label>
+          Title
+          <input v-model="ntfyEditTitle" />
+        </label>
+
+        <div class="row">
+          <button type="button" :disabled="ntfyPending" @click="changeNtfy('edit')">
+            {{ ntfyPending ? 'Working...' : 'Edit it' }}
+          </button>
+          <button type="button" :disabled="ntfyPending" @click="changeNtfy('delete')">
+            Delete it
+          </button>
+        </div>
+      </template>
     </section>
     <section>
       <h2>Layer 2: mastodon</h2>

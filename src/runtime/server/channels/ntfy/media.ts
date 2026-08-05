@@ -29,6 +29,7 @@ const HEADERS: Record<string, string> = {
   call: 'X-Call',
   delay: 'X-Delay',
   actions: 'X-Actions',
+  sequence_id: 'X-Sequence-ID',
 }
 
 /**

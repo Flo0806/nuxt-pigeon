@@ -14,10 +14,16 @@ export interface NtfyMessage {
 }
 
 /**
- * ntfy can neither edit nor delete a published message, so the id is only good for
- * matching a delivery against your own logs.
+ * Topic and id are all it takes to point at a notification again, and the id may be
+ * one you chose yourself, see `sequenceId`.
  */
-export interface NtfyResult extends PigeonResult<NtfyMessage | undefined> {
+export interface NtfyHandle {
+  /** Falls back to the configured topic when left out. */
+  topic?: string
+  id?: string
+}
+
+export interface NtfyResult extends PigeonResult<NtfyMessage | undefined>, NtfyHandle {
   channel: 'ntfy'
   /** The topic it actually went to, which may come from the call rather than config. */
   topic: string
@@ -57,6 +63,15 @@ export type NtfyAction = NtfyViewAction | NtfyHttpAction | NtfyBroadcastAction
 export type NtfyPriority = 1 | 2 | 3 | 4 | 5
 
 export interface NtfySendOptions {
+  /**
+   * Your own id for this notification, instead of the one ntfy hands out. Publishing
+   * again with the same one **replaces** the notification on every client rather than
+   * adding a second one, which is how a live status ("Deploy 3 of 7") stays a single
+   * entry in the shade.
+   *
+   * Needs an ntfy server of 2.16.0 or newer. Up to 64 characters of `-_A-Za-z0-9`.
+   */
+  sequenceId?: string
   /** Overrides the configured topic. ntfy publishes to one topic per request. */
   topic?: string
   /**
