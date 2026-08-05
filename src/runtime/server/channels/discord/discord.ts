@@ -4,7 +4,13 @@ import { post } from '../../core/post'
 import type { RequestOptions } from '../../core/request'
 import { toResult, type RawResponse } from '../../core/result'
 import { assertWithinLimit, escapeMarkdown } from './format'
-import type { DiscordEditOptions, DiscordMessage, DiscordResult, DiscordSendOptions } from './types'
+import type {
+  DiscordEditOptions,
+  DiscordHandle,
+  DiscordMessage,
+  DiscordResult,
+  DiscordSendOptions,
+} from './types'
 
 function settings() {
   const { discord } = useRuntimeConfig().pigeon.channels
@@ -29,7 +35,7 @@ function result(response: RawResponse<DiscordMessage>, threadId?: string) {
  * than from the handle on purpose: that url **is** the credential, and a handle is an
  * object users pass around and log.
  */
-function messageUrl(handle: DiscordResult, threadId?: string): string {
+function messageUrl(handle: DiscordHandle, threadId?: string): string {
   const { webhookUrl } = settings()
 
   if (!webhookUrl) {
@@ -115,7 +121,7 @@ async function send(text: string, options: DiscordSendOptions & RequestOptions =
  * https://docs.discord.com/developers/resources/webhook#edit-webhook-message
  */
 async function edit(
-  handle: DiscordResult,
+  handle: DiscordHandle,
   text: string,
   options: DiscordEditOptions & RequestOptions = {},
 ) {
@@ -151,7 +157,7 @@ async function edit(
 }
 
 /** Gone for good, and Discord answers 204, so there is nothing to read afterwards. */
-async function remove(handle: DiscordResult, options: RequestOptions & { threadId?: string } = {}) {
+async function remove(handle: DiscordHandle, options: RequestOptions & { threadId?: string } = {}) {
   const url = messageUrl(handle, options.threadId)
 
   const response = await post<undefined>(url, undefined, {

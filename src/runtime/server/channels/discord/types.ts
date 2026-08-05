@@ -48,8 +48,12 @@ export interface DiscordMessage {
   [key: string]: unknown
 }
 
-export interface DiscordResult extends PigeonResult<DiscordMessage | undefined> {
-  channel: 'discord'
+/**
+ * Everything needed to point at a message again, and all `edit` and `delete` ask for.
+ * Deliberately **not** the full result: an id kept in your own database has to be
+ * turnable back into a handle, without inventing a `raw` and a `response` for it.
+ */
+export interface DiscordHandle {
   /** Missing with `wait: false`, because Discord then answers 204 and says nothing. */
   id?: string
   /** Only known here, never in the answer, and needed to edit or delete again. */
@@ -61,6 +65,10 @@ export interface DiscordResult extends PigeonResult<DiscordMessage | undefined> 
    * An edit has to name every attachment that should survive it, see `edit`.
    */
   attachmentIds?: string[]
+}
+
+export interface DiscordResult extends PigeonResult<DiscordMessage | undefined>, DiscordHandle {
+  channel: 'discord'
 }
 
 /**
