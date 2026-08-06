@@ -74,8 +74,16 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
+# Both sides, because a leftover tag on the remote is what actually blocks a re-run,
+# and it survives deleting the local one.
 if git rev-parse "$TAG" >/dev/null 2>&1; then
-  echo "Error: tag '$TAG' already exists. Pick a new version."
+  echo "Error: tag '$TAG' already exists locally."
+  echo "  git tag -d $TAG"
+  exit 1
+fi
+if [ -n "$(git ls-remote --tags origin "refs/tags/$TAG" 2>/dev/null)" ]; then
+  echo "Error: tag '$TAG' already exists on origin."
+  echo "  git push origin :refs/tags/$TAG"
   exit 1
 fi
 
@@ -87,7 +95,15 @@ echo ""
 read -r -p "Push the tag and let CI build it? [y/N] " ok
 [ "$ok" = "y" ] || [ "$ok" = "Y" ] || { echo "Aborted."; exit 1; }
 
-node -e "
+# Already at this version? Then there is nothing to bump, and committing would fail
+# with "nothing to commit" and take the tagging down with it. That happens whenever a
+# release is repeated, for instance after deleting a tag.
+CURRENT=$(node -p "require('./$PKG_JSON').version")
+
+if [ "$CURRENT" = "$VERSION" ]; then
+  echo "$DIR is already at $VERSION, so only the tag is missing. Tagging $(git rev-parse --short HEAD)."
+else
+  node -e "
 const fs = require('fs');
 const path = '$PKG_JSON';
 const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
@@ -95,8 +111,10 @@ pkg.version = '$VERSION';
 fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
 "
 
-git add "$PKG_JSON"
-git commit -m "release: docs v$VERSION"
+  git add "$PKG_JSON"
+  git commit -m "release: docs v$VERSION"
+fi
+
 git tag "$TAG"
 git push origin HEAD
 git push origin "$TAG"
