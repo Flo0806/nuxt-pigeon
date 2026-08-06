@@ -1,0 +1,27 @@
+# Everything the build produces or installs itself. Without this the context is
+# hundreds of megabytes and the layer cache is useless.
+node_modules
+**/node_modules
+.nuxt
+**/.nuxt
+.output
+**/.output
+dist
+**/dist
+.data
+**/.data
+.git
+.github
+coverage
+reports
+
+# Not the container's business
+playground
+test
+notes
+notes2
+todo.md
+CLAUDE.md
+*.log
+.env
+**/.env
