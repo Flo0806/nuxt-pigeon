@@ -1,13 +1,14 @@
 import type { NtfyPriority } from '../../../src/runtime/server/channels/ntfy/types'
 
 export default defineEventHandler(async (event) => {
-  const { text, title, priority, tags, click, mediaUrl } = await readBody<{
+  const { text, title, priority, tags, click, mediaUrl, sequenceId } = await readBody<{
     text: string
     title: string
     priority: number
     tags: string
     click: string
     mediaUrl: string
+    sequenceId: string
   }>(event)
 
   try {
@@ -18,6 +19,9 @@ export default defineEventHandler(async (event) => {
       click: click || undefined,
       // A url stays a url, ntfy fetches it itself.
       media: mediaUrl ? { url: mediaUrl } : undefined,
+      // Your own id instead of ntfy's. Publish twice with the same one and the
+      // notification is replaced rather than repeated.
+      sequenceId: sequenceId || undefined,
     })
 
     // The handle: topic plus id, and that is all edit and delete need.

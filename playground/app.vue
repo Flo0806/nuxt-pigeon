@@ -634,6 +634,7 @@ async function probe() {
       <TelegramCard />
       <DiscordCard />
       <SlackCard />
+      <NtfyCard />
     </div>
 
     <h1>nuxt-pigeon</h1>
