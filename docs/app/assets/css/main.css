@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+@import '@nuxt/ui';
+
+/* Nuxt green, because this is a Nuxt module and nothing else would make sense. */
+@theme static {
+  /* The whole page, sidebar and table of contents included. One number to change
+     if it ever feels cramped or too wide. */
+  --ui-container: 82rem;
+
+  --color-primary-50: #eafaf3;
+  --color-primary-100: #d0f5e4;
+  --color-primary-200: #a3ebcb;
+  --color-primary-300: #6fdfae;
+  --color-primary-400: #3fd18f;
+  --color-primary-500: #00dc82;
+  --color-primary-600: #00b26a;
+  --color-primary-700: #008b53;
+  --color-primary-800: #006b40;
+  --color-primary-900: #00512f;
+  --color-primary-950: #002d1a;
+}

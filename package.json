@@ -19,9 +19,6 @@
   "bugs": "https://github.com/Flo0806/nuxt-pigeon/issues",
   "license": "MIT",
   "repository": "Flo0806/nuxt-pigeon",
-  "workspaces": [
-    "playground"
-  ],
   "files": [
     "dist"
   ],
@@ -45,6 +42,8 @@
     "dev": "npm run dev:prepare && nuxt dev playground",
     "dev:build": "nuxt build playground",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
+    "dev:docs": "pnpm --filter docs dev --port 3001",
+    "docs:build": "pnpm --filter docs build",
     "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
     "lint": "oxlint",
     "format": "oxfmt .",

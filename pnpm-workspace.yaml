@@ -1,3 +1,11 @@
+# The playground stays **inside** the module package on purpose: it is the module's
+# own dev harness, it resolves `nuxt-pigeon` by self reference, and that is how the
+# official Nuxt module starter has it. Docs is a real app of its own.
+packages:
+  - docs
+
 allowBuilds:
+  better-sqlite3: true
+  vue-demi: true
   esbuild: true
   unrs-resolver: true
