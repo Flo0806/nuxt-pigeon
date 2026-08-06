@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
       visibility: (visibility || undefined) as MastodonVisibility | undefined,
       spoilerText: spoilerText || undefined,
       // Mastodon takes no url, so this one really is downloaded and uploaded again.
-      media: mediaUrl ? [{ url: mediaUrl, alt: 'Vom Playground geschickt' }] : undefined,
+      media: mediaUrl ? [{ url: mediaUrl, alt: 'Sent from the playground' }] : undefined,
     })
 
     return {

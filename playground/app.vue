@@ -107,7 +107,7 @@ async function sendConfigured() {
 /** No polling and no reload button: the messages arrive on their own. */
 const { messages: inbox, connected } = usePigeon()
 
-const selfText = ref('an mich selbst')
+const selfText = ref('to myself')
 const selfSecret = ref('')
 const selfPending = ref(false)
 const selfError = ref('')
@@ -145,7 +145,7 @@ interface Sent {
 const discordText = ref('*Deploy failed* on `main`')
 const discordEscape = ref(false)
 const discordMediaUrl = ref('')
-const discordAlt = ref('Ein Screenshot')
+const discordAlt = ref('A screenshot')
 const discordSpoiler = ref(false)
 const discordEmbed = ref(false)
 const discordPending = ref(false)
@@ -282,10 +282,10 @@ async function changeSlack(action: 'edit' | 'delete') {
   }
 }
 
-const bskyText = ref('Release 1.0 ist da: https://example.com #nuxt')
+const bskyText = ref('Release 1.0 is out: https://example.com #nuxt')
 const bskyFacets = ref(true)
 const bskyMediaUrl = ref('')
-const bskyAlt = ref('Ein Screenshot')
+const bskyAlt = ref('A screenshot')
 const bskyCardUrl = ref('')
 const bskyCardTitle = ref('nuxt-pigeon')
 const bskyCardDescription = ref('Nothing here is read from the linked page.')
@@ -352,7 +352,7 @@ async function checkPollers() {
 onMounted(checkPollers)
 
 const mastoText = ref(
-  'Release 1.0 ist da: https://example.com/ein/sehr/langer/pfad/der/nicht/zaehlt',
+  'Release 1.0 is out: https://example.com/a/very/long/path/that/still/costs/23',
 )
 const mastoVisibility = ref('direct')
 const mastoSpoiler = ref('')
@@ -370,7 +370,7 @@ const mastoCount = computed(() =>
 
 /** The handle from the last post: the status id and the files on it. */
 const mastoSent = ref<{ id: string; mediaIds: string[] } | null>(null)
-const mastoEditText = ref('Release 1.0 ist da, jetzt mit Tippfehler weniger')
+const mastoEditText = ref('Release 1.0 is out, now with one typo less')
 const mastoEditMediaUrl = ref('')
 const mastoKeepImages = ref(true)
 const mastoRedraft = ref('')
@@ -635,6 +635,7 @@ async function probe() {
       <DiscordCard />
       <SlackCard />
       <NtfyCard />
+      <MastodonCard />
     </div>
 
     <h1>nuxt-pigeon</h1>
