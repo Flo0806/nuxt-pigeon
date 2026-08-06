@@ -1,75 +1,21 @@
-# Nuxt Content Starter
+# Documentation
 
-Look at the [Nuxt Content documentation](https://content.nuxt.com) to learn more.
-
-## Setup
-
-Make sure to install dependencies:
+The documentation site for [nuxt-pigeon](../), built with Nuxt Content and Nuxt UI.
 
 ```bash
-# npm
-npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
+pnpm run dev:docs     # from the repository root, on port 3001
+pnpm run docs:build
 ```
 
-## Development Server
+Pages live in `content/`, one feature per page. The shape is deliberate and worth
+keeping to:
 
-Start the development server on `http://localhost:3000`:
+1. **Copy this** - everything needed, in order, ending in something that runs
+2. **What just happened** - so it is not magic
+3. **Every option** - a table, linked to the service's own reference
+4. **What will cost you an hour** - the traps, named
+5. **Read more** - the real API docs
 
-```bash
-# npm
-npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
-```
-
-## Production
-
-Build the application for production:
-
-```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
-```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+Nothing is written from memory. Every limit, option name and error message on these
+pages was checked against `src/` or the service's documentation, and the quotes are
+verbatim with a link.

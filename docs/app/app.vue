@@ -31,7 +31,7 @@ useSeoMeta({
   <UApp>
     <UHeader to="/">
       <template #title>
-        <img src="/logo.svg" alt="" class="size-7 shrink-0" >
+        <img src="/logo.svg" alt="" class="size-7 shrink-0" />
         <span class="font-semibold">nuxt-pigeon</span>
       </template>
 
