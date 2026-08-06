@@ -637,6 +637,8 @@ async function probe() {
       <NtfyCard />
       <MastodonCard />
       <BlueskyCard />
+      <WebhookCard />
+      <RetryCard />
     </div>
 
     <h1>nuxt-pigeon</h1>
