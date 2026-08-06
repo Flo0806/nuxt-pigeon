@@ -23,6 +23,10 @@
 </p>
 
 <p align="center">
+  <a href="https://pigeon.fh-softdev.de"><strong>Documentation</strong></a>
+</p>
+
+<p align="center">
   <a href="https://npmjs.com/package/nuxt-pigeon"><img src="https://img.shields.io/npm/v/nuxt-pigeon/latest.svg?style=flat&colorA=020420&colorB=00DC82" alt="npm version"></a>
   <a href="https://npm.chart.dev/nuxt-pigeon"><img src="https://img.shields.io/npm/dm/nuxt-pigeon.svg?style=flat&colorA=020420&colorB=00DC82" alt="npm downloads"></a>
   <a href="https://npmjs.com/package/nuxt-pigeon"><img src="https://img.shields.io/npm/l/nuxt-pigeon.svg?style=flat&colorA=020420&colorB=00DC82" alt="License"></a>

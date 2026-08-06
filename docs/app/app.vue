@@ -19,12 +19,6 @@ useHead({
   htmlAttrs: { lang: 'en' },
   link: [{ rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
 })
-
-useSeoMeta({
-  ogSiteName: 'nuxt-pigeon',
-  description:
-    'Send and receive messages in Nuxt, whether the service speaks webhooks, polling or streams.',
-})
 </script>
 
 <template>

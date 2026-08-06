@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      /*
+        1200 x 630, the size every platform crops from. Everything important sits
+        well inside it, because Slack and Twitter shave the edges differently.
+      */
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        display: flex;
+        width: 1200px;
+        height: 630px;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 72px 80px;
+        background: #0a0d33;
+        background-image:
+          radial-gradient(circle at 88% 12%, rgb(97 227 163 / 22%), transparent 46%),
+          radial-gradient(circle at 8% 96%, rgb(0 220 130 / 12%), transparent 42%);
+        color: #fff;
+        font-family:
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+
+      header img {
+        width: 56px;
+        height: 56px;
+      }
+
+      .name {
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+
+      h1 {
+        max-width: 20ch;
+        font-size: 86px;
+        font-weight: 700;
+        letter-spacing: -0.035em;
+        line-height: 1.02;
+      }
+
+      /* Long titles would otherwise run into the footer. */
+      h1.long {
+        font-size: 66px;
+      }
+
+      p {
+        max-width: 46ch;
+        margin-top: 26px;
+        color: #b9bfd6;
+        font-size: 27px;
+        line-height: 1.4;
+      }
+
+      footer {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        color: #7f87a8;
+        font-size: 23px;
+      }
+
+      .rule {
+        width: 64px;
+        height: 3px;
+        border-radius: 2px;
+        background: #61e3a3;
+      }
+
+      .channels {
+        margin-left: auto;
+        color: #61e3a3;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <img src="logo.svg" alt="" />
+      <span class="name">nuxt-pigeon</span>
+    </header>
+
+    <main>
+      <h1 id="title">Title</h1>
+      <p id="description"></p>
+    </main>
+
+    <footer>
+      <span class="rule"></span>
+      <span id="section">Documentation</span>
+      <span class="channels">Telegram · Discord · Slack · ntfy · Mastodon · Bluesky</span>
+    </footer>
+  </body>
+</html>

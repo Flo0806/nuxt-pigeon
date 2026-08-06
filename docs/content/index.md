@@ -1,6 +1,6 @@
 ---
 title: 'nuxt-pigeon'
-description: 'Send and receive messages in Nuxt, whether the service speaks webhooks, polling or streams.'
+description: 'Nuxt module to send and receive messages across Telegram, Discord, Slack, ntfy, Mastodon, Bluesky and any webhook. One API, whatever the service speaks.'
 navigation: false
 ---
 

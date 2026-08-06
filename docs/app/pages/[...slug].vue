@@ -20,11 +20,10 @@ const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')
 /** The landing page is not a docs page: no sidebar, no table of contents. */
 const framed = computed(() => page.value?.navigation !== false)
 
-useSeoMeta({
+useDocsSeo({
   title: page.value.title,
   description: page.value.description,
-  ogTitle: page.value.title,
-  ogDescription: page.value.description,
+  path: page.value.path,
 })
 </script>
 

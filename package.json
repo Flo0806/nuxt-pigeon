@@ -44,6 +44,7 @@
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
     "dev:docs": "pnpm --filter docs dev --port 3001",
     "docs:build": "pnpm --filter docs build",
+    "docs:og": "pnpm --filter docs og",
     "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
     "lint": "oxlint",
     "format": "oxfmt .",
