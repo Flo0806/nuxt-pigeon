@@ -633,6 +633,7 @@ async function probe() {
       <p class="hint">One card, for review. Everything below is still the old page.</p>
       <TelegramCard />
       <DiscordCard />
+      <SlackCard />
     </div>
 
     <h1>nuxt-pigeon</h1>
