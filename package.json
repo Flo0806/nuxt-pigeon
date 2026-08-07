@@ -15,10 +15,15 @@
     "telegram",
     "webhook"
   ],
-  "homepage": "https://github.com/Flo0806/nuxt-pigeon",
-  "bugs": "https://github.com/Flo0806/nuxt-pigeon/issues",
+  "homepage": "https://pigeon.fh-softdev.de",
+  "bugs": {
+    "url": "https://github.com/Flo0806/nuxt-pigeon/issues"
+  },
   "license": "MIT",
-  "repository": "Flo0806/nuxt-pigeon",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Flo0806/nuxt-pigeon.git"
+  },
   "files": [
     "dist"
   ],
