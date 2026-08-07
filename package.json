@@ -72,5 +72,6 @@
     "typescript": "~5.9.3",
     "vitest": "^4.1.10",
     "vue-tsc": "^3.3.9"
-  }
+  },
+  "packageManager": "pnpm@11.18.0"
 }
