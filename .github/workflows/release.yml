@@ -1,0 +1,104 @@
+name: Release
+
+# Triggered by the tag `scripts/release.sh module <version>` pushes. `docs-v*` belongs
+# to the other workflow and does not match here.
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release
+      id-token: write # npm provenance, once the first publish is proven green
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history, so the generated release notes have a range
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Read the version from the tag
+        id: pkg
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          # A prerelease (1.0.0-rc.1) publishes to its own channel and NEVER to
+          # `latest`. Otherwise `npm i nuxt-pigeon` hands people a release candidate,
+          # and `latest` stays stuck there until the next stable one.
+          DIST=$(printf '%s' "$VERSION" | sed -nE 's/^[0-9]+\.[0-9]+\.[0-9]+-([a-zA-Z]+).*/\1/p')
+          [ -z "$DIST" ] && DIST="latest"
+
+          # The tag and the manifest have to agree, or npm publishes something else
+          # than the tag promises and the GitHub release points at the wrong thing.
+          MANIFEST=$(node -p "require('./package.json').version")
+          if [ "$MANIFEST" != "$VERSION" ]; then
+            echo "::error::Tag says $VERSION, package.json says $MANIFEST."
+            exit 1
+          fi
+
+          { echo "version=$VERSION"; echo "dist=$DIST"; } >> "$GITHUB_OUTPUT"
+
+      # Everything that guards the release runs before anything is published, because
+      # npm cannot be taken back: unpublishing is only possible for 72 hours, and the
+      # version number is burned either way.
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Format check
+        run: pnpm run format:check
+
+      - name: Prepare the module and the playground
+        run: pnpm run dev:prepare
+
+      - name: Types
+        run: pnpm run test:types
+
+      - name: Test
+        run: pnpm run test
+
+      - name: Build
+        run: pnpm run prepack
+
+      - name: Publish
+        # `--no-git-checks` because we are on a detached tag, which pnpm otherwise
+        # refuses. `--tag` is what keeps a prerelease off `latest`.
+        run: pnpm publish --access public --no-git-checks --tag "${{ steps.pkg.outputs.dist }}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.pkg.outputs.version }}
+          generate_release_notes: true
+          prerelease: ${{ steps.pkg.outputs.dist != 'latest' }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### nuxt-pigeon v${{ steps.pkg.outputs.version }} published"
+            echo ""
+            echo "npm dist-tag: \`${{ steps.pkg.outputs.dist }}\`"
+            echo ""
+            echo '```bash'
+            echo "npm i nuxt-pigeon@${{ steps.pkg.outputs.version }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

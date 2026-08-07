@@ -5,16 +5,18 @@ set -e
 # tag is what starts the GitHub workflow, nothing here builds or publishes anything.
 #
 # Usage:   ./scripts/release.sh <project> <version>
-#   project = docs            the documentation site, built into a container image
+#   project = module          the npm package, published to npm
+#             docs            the documentation site, built into a container image
 #   version = semver, e.g. 1.0.0 or 1.0.0-rc.1
 #
-# `module` (the npm package) will slot in here later. It is deliberately not offered
-# yet rather than half wired, so nobody tags something no workflow listens to.
+# A prerelease version (1.0.0-rc.1) publishes to its own npm channel and never to
+# `latest`, so `npm i nuxt-pigeon` keeps handing out the last stable one.
 
 usage() {
   echo "Usage: ./scripts/release.sh <project> <version>"
-  echo "  project: docs"
-  echo "  example: ./scripts/release.sh docs 1.0.0"
+  echo "  project: module | docs"
+  echo "  example: ./scripts/release.sh module 1.0.0"
+  echo "           ./scripts/release.sh docs 1.0.0"
   exit 1
 }
 
@@ -23,19 +25,20 @@ VERSION="$2"
 [ -z "$PROJECT" ] || [ -z "$VERSION" ] && usage
 
 case "$PROJECT" in
+  # The module is the workspace root, so its manifest is the root package.json.
+  module)
+    PKG_JSON="package.json"
+    TAG_PREFIX="v"
+    WHAT="the npm package"
+    AFTER="npm, and it cannot be taken back after 72 hours"
+    ;;
   docs)
-    DIR="docs"
+    PKG_JSON="docs/package.json"
     TAG_PREFIX="docs-v"
     WHAT="the documentation site"
-    AFTER="GitHub builds the image and pushes it to ghcr.io/\$REPO-docs."
+    AFTER="a container image on ghcr.io"
     ;;
-  module)
-    echo "Error: releasing the npm package is not wired up yet."
-    echo "Only 'docs' exists today, and tagging for something with no workflow"
-    echo "behind it would look like it worked and do nothing."
-    exit 1
-    ;;
-  *) echo "Error: unknown project '$PROJECT' (use: docs)"; exit 1 ;;
+  *) echo "Error: unknown project '$PROJECT' (use: module or docs)"; exit 1 ;;
 esac
 
 # semver: 1.2.3 or 1.2.3-rc.1
@@ -44,7 +47,6 @@ if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-.+)?$ ]]; then
   exit 1
 fi
 
-PKG_JSON="$DIR/package.json"
 TAG="${TAG_PREFIX}${VERSION}"
 
 # Release ONLY from an up to date `main`. Releasing from a feature branch strands the
@@ -91,9 +93,20 @@ echo ""
 echo "  Release  $WHAT"
 echo "  Version  $VERSION"
 echo "  Tag      $TAG"
+echo "  Goes to  $AFTER"
 echo ""
-read -r -p "Push the tag and let CI build it? [y/N] " ok
-[ "$ok" = "y" ] || [ "$ok" = "Y" ] || { echo "Aborted."; exit 1; }
+
+# npm is the one that cannot be undone, so it asks differently.
+if [ "$PROJECT" = "module" ]; then
+  echo "  This publishes to npm. A version number can never be reused, and"
+  echo "  unpublishing is only possible within 72 hours."
+  echo ""
+  read -r -p "Type the version to confirm: " typed
+  [ "$typed" = "$VERSION" ] || { echo "Aborted."; exit 1; }
+else
+  read -r -p "Push the tag and let CI build it? [y/N] " ok
+  [ "$ok" = "y" ] || [ "$ok" = "Y" ] || { echo "Aborted."; exit 1; }
+fi
 
 # Already at this version? Then there is nothing to bump, and committing would fail
 # with "nothing to commit" and take the tagging down with it. That happens whenever a
@@ -101,7 +114,7 @@ read -r -p "Push the tag and let CI build it? [y/N] " ok
 CURRENT=$(node -p "require('./$PKG_JSON').version")
 
 if [ "$CURRENT" = "$VERSION" ]; then
-  echo "$DIR is already at $VERSION, so only the tag is missing. Tagging $(git rev-parse --short HEAD)."
+  echo "$PKG_JSON already says $VERSION, so only the tag is missing. Tagging $(git rev-parse --short HEAD)."
 else
   node -e "
 const fs = require('fs');
@@ -112,7 +125,7 @@ fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
 "
 
   git add "$PKG_JSON"
-  git commit -m "release: docs v$VERSION"
+  git commit -m "release: $PROJECT v$VERSION"
 fi
 
 git tag "$TAG"
@@ -123,5 +136,7 @@ echo ""
 echo "Done. Watch it here:"
 echo "  https://github.com/Flo0806/nuxt-pigeon/actions"
 echo ""
-echo "Then on server02:"
-echo "  docker compose pull docs && docker compose up -d docs"
+if [ "$PROJECT" = "docs" ]; then
+  echo "Then on server02:"
+  echo "  docker compose pull pigeon-docs && docker compose up -d pigeon-docs"
+fi
