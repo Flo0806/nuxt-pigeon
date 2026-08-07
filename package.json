@@ -1,6 +1,6 @@
 {
   "name": "nuxt-pigeon",
-  "version": "1.0.0",
+  "version": "1.0.0-beta.1",
   "description": "Send and receive messages across Telegram, Slack, Discord and any webhook.",
   "keywords": [
     "bluesky",
