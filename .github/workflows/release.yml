@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # create the GitHub Release
-      id-token: write # npm provenance, once the first publish is proven green
+      id-token: write # npm provenance
 
     steps:
       - name: Checkout
@@ -79,8 +79,9 @@ jobs:
 
       - name: Publish
         # `--no-git-checks` because we are on a detached tag, which pnpm otherwise
-        # refuses. `--tag` is what keeps a prerelease off `latest`.
-        run: pnpm publish --access public --no-git-checks --tag "${{ steps.pkg.outputs.dist }}"
+        # refuses. `--tag` is what keeps a prerelease off `latest`. `--provenance`
+        # signs the package with this workflow run, so npm can show where it was built.
+        run: pnpm publish --access public --no-git-checks --provenance --tag "${{ steps.pkg.outputs.dist }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
