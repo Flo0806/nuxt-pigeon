@@ -89,7 +89,17 @@ export type DiscordEditOptions = Omit<
   attachments?: unknown[]
 }
 
+export interface DiscordCredentials {
+  /** The url is the credential: it names the channel and grants the right to post there. */
+  webhookUrl?: string
+}
+
 export interface DiscordSendOptions {
+  /**
+   * Another webhook for this one call, so a second server or channel is one option
+   * away. `edit` and `delete` need it again, it is never kept in the handle.
+   */
+  webhookUrl?: string
   /** Overrides the name the webhook was created with. */
   username?: string
   avatarUrl?: string

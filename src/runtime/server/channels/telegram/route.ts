@@ -6,19 +6,17 @@ import {
   readRawBody,
   setResponseStatus,
 } from 'h3'
-import { useRuntimeConfig } from '#imports'
 import { dispatch } from '../../core/listeners'
 import { safeEqual } from '../../core/verify'
 import { normalise } from './normalise'
+import { secretToken } from './telegram'
 import type { TelegramUpdate } from './types'
 import type { PigeonMessage } from '../../../types'
 
 const SECRET_HEADER = 'x-telegram-bot-api-secret-token'
 
 export default defineEventHandler(async (event) => {
-  const secret =
-    useRuntimeConfig().pigeon.channels.telegram.secretToken ||
-    process.env.PIGEON_TELEGRAM_SECRET_TOKEN
+  const secret = secretToken()
 
   // Without a secret the route is open to anyone who guesses the path, and forged
   // updates are indistinguishable from real ones. Refusing beats accepting.

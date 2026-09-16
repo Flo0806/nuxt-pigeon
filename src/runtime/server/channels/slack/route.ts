@@ -6,8 +6,8 @@ import {
   readRawBody,
   setResponseStatus,
 } from 'h3'
-import { useRuntimeConfig } from '#imports'
 import { dispatch } from '../../core/listeners'
+import { signingSecret } from './slack'
 import { verifySignature } from './verify'
 import type { PigeonMessage } from '../../../types'
 import type { SlackEnvelope } from './types'
@@ -16,11 +16,9 @@ const SIGNATURE_HEADER = 'x-slack-signature'
 const TIMESTAMP_HEADER = 'x-slack-request-timestamp'
 
 export default defineEventHandler(async (event) => {
-  const signingSecret =
-    useRuntimeConfig().pigeon.channels.slack.signingSecret ||
-    process.env.PIGEON_SLACK_SIGNING_SECRET
+  const secret = signingSecret()
 
-  if (!signingSecret) {
+  if (!secret) {
     throw createError({ statusCode: 503, statusMessage: 'Slack signing secret is not configured' })
   }
 
@@ -34,7 +32,7 @@ export default defineEventHandler(async (event) => {
     signature: getHeader(event, SIGNATURE_HEADER) || '',
     timestamp: getHeader(event, TIMESTAMP_HEADER) || '',
     rawBody,
-    signingSecret,
+    signingSecret: secret,
   })
 
   if (!valid) {

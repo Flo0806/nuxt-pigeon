@@ -1,6 +1,14 @@
 import { useRuntimeConfig } from '#imports'
+import {
+  getOverride,
+  notConfigured,
+  resolveCredentials,
+  type CredentialsMode,
+} from '../../core/credentials'
+import { defineLifecycle } from '../../core/lifecycle'
 import { addListener, type Handler } from '../../core/listeners'
 import type {
+  TelegramCredentials,
   TelegramDeleteResult,
   TelegramEnvelope,
   TelegramHandle,
@@ -54,16 +62,50 @@ export type TelegramEditOptions = Omit<
   'chatId' | 'disableNotification' | 'replyToMessageId'
 >
 
+function mode() {
+  // Generated runtime config types widen the literal to `string`.
+  return useRuntimeConfig().pigeon.channels.telegram.credentials as CredentialsMode
+}
+
 function settings() {
   const { telegram } = useRuntimeConfig().pigeon.channels
 
-  // Runtime config - or env as fallback
-  return {
-    token: telegram.token || process.env.PIGEON_TELEGRAM_BOT_TOKEN,
-    chatId: telegram.chatId || process.env.PIGEON_TELEGRAM_CHAT_ID,
-    secretToken: telegram.secretToken || process.env.PIGEON_TELEGRAM_SECRET_TOKEN,
-    route: telegram.route,
+  return resolveCredentials<TelegramCredentials>({
+    channel: 'telegram',
+    mode: mode(),
+    // Runtime config - or env as fallback
+    static: {
+      token: telegram.token || process.env.PIGEON_TELEGRAM_BOT_TOKEN,
+      chatId: telegram.chatId || process.env.PIGEON_TELEGRAM_CHAT_ID,
+      secretToken: telegram.secretToken || process.env.PIGEON_TELEGRAM_SECRET_TOKEN,
+    },
+    override: getOverride('telegram'),
+    configured: (values) => !!values.token,
+  })
+}
+
+function token(): string {
+  const { token } = settings().values
+
+  if (!token) {
+    throw notConfigured(
+      'telegram',
+      mode(),
+      'Telegram bot token',
+      'PIGEON_TELEGRAM_BOT_TOKEN',
+      'token',
+    )
   }
+
+  return token
+}
+
+/**
+ * For the route, which checks every delivery against it. Read per request, so a
+ * `configure()` applies to the next update without anything being restarted.
+ */
+export function secretToken(): string | undefined {
+  return settings().values.secretToken
 }
 
 /**
@@ -104,15 +146,9 @@ async function callApiRaw<T>(
   payload: Record<string, unknown> | FormData,
   options: RequestOptions = {},
 ): Promise<RawResponse<TelegramEnvelope<T>>> {
-  const { token } = settings()
-
-  if (!token) {
-    throw new Error('Telegram bot token is not defined. Set PIGEON_TELEGRAM_BOT_TOKEN')
-  }
-
   try {
     return await createRequest({ retryAfter, ...options }).raw<TelegramEnvelope<T>>(
-      `${API}/bot${token}/${method}`,
+      `${API}/bot${token()}/${method}`,
       // FormData sets its own content type, including the boundary.
       { method: 'POST', body: payload },
     )
@@ -157,11 +193,10 @@ function result(
 }
 
 async function send(text: string, options: TelegramSendOptions & RequestOptions = {}) {
-  const { chatId } = settings()
-  const target = options.chatId ?? chatId
+  const target = options.chatId ?? settings().values.chatId
 
   if (!target) {
-    throw new Error('Telegram chat id is not defined. Set PIGEON_TELEGRAM_CHAT_ID')
+    throw notConfigured('telegram', mode(), 'Telegram chat id', 'PIGEON_TELEGRAM_CHAT_ID', 'chatId')
   }
 
   const fields = {
@@ -298,18 +333,20 @@ async function remove(
  * deploying knows the public address, and only they should decide when it changes.
  */
 async function setWebhook(baseUrl: string, options: { dropPendingUpdates?: boolean } = {}) {
-  const { secretToken, route } = settings()
+  const secret = secretToken()
+  const { route } = useRuntimeConfig().pigeon.channels.telegram
 
-  if (!secretToken) {
+  if (!secret) {
     throw new Error(
-      'Telegram secret token is not defined. Set PIGEON_TELEGRAM_SECRET_TOKEN, otherwise ' +
-        'anyone who guesses the url can send you forged updates',
+      'Telegram secret token is not defined. Set PIGEON_TELEGRAM_SECRET_TOKEN or pass ' +
+        'it to telegram.configure({ secretToken }), otherwise anyone who guesses the ' +
+        'url can send you forged updates',
     )
   }
 
   return callApi<boolean>('setWebhook', {
     url: new URL(route, baseUrl).toString(),
-    secret_token: secretToken,
+    secret_token: secret,
     drop_pending_updates: options.dropPendingUpdates,
   })
 }
@@ -338,6 +375,18 @@ function listen(handler: Handler<TelegramUpdate>): () => void {
   return addListener('telegram', handler)
 }
 
+/**
+ * Nothing polls for Telegram, so there is nothing to restart. What `configure()`
+ * cannot do is tell Telegram: a new token is a different bot, and the webhook is
+ * registered per bot, so `setWebhook()` has to run again afterwards.
+ */
+const lifecycle = defineLifecycle<TelegramCredentials>({
+  channel: 'telegram',
+  mode,
+  resolve: settings,
+  assert: () => void token(),
+})
+
 export const telegram = {
   send,
   edit,
@@ -347,4 +396,5 @@ export const telegram = {
   deleteWebhook,
   webhookInfo,
   escapeHtml,
+  ...lifecycle,
 }

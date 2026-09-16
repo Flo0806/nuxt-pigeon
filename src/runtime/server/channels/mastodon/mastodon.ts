@@ -1,4 +1,11 @@
 import { useRuntimeConfig } from '#imports'
+import {
+  getOverride,
+  notConfigured,
+  resolveCredentials,
+  type CredentialsMode,
+} from '../../core/credentials'
+import { defineLifecycle } from '../../core/lifecycle'
 import { addListener, type Handler } from '../../core/listeners'
 import { createRequest, type RequestOptions } from '../../core/request'
 import type { Media } from '../../core/media'
@@ -14,6 +21,7 @@ import {
 import { toResult, type RawResponse } from '../../core/result'
 import { assertAttachmentCount, uploadMedia } from './media'
 import type {
+  MastodonCredentials,
   MastodonEditOptions,
   MastodonHandle,
   MastodonNotification,
@@ -26,22 +34,37 @@ import type {
 /** Survives HMR, otherwise every reload asks the instance for its limits again. */
 const LIMITS = Symbol.for('nuxt-pigeon:mastodon-limits')
 
+function mode() {
+  // Generated runtime config types widen the literal to `string`.
+  return useRuntimeConfig().pigeon.channels.mastodon.credentials as CredentialsMode
+}
+
 function settings() {
   const { mastodon } = useRuntimeConfig().pigeon.channels
 
-  // Runtime config - or env as fallback
-  return {
-    instance: mastodon.instance || process.env.PIGEON_MASTODON_INSTANCE,
-    token: mastodon.token || process.env.PIGEON_MASTODON_TOKEN,
-  }
+  return resolveCredentials<MastodonCredentials>({
+    channel: 'mastodon',
+    mode: mode(),
+    // Runtime config - or env as fallback
+    static: {
+      instance: mastodon.instance || process.env.PIGEON_MASTODON_INSTANCE,
+      token: mastodon.token || process.env.PIGEON_MASTODON_TOKEN,
+    },
+    override: getOverride('mastodon'),
+    configured: (values) => !!(values.instance && values.token),
+  })
 }
 
-function credentials() {
-  const { instance, token } = settings()
+function credentials(): { instance: string; token: string } {
+  const { instance, token } = settings().values
 
   if (!instance || !token) {
-    throw new Error(
-      'Mastodon instance or token is not defined. Set PIGEON_MASTODON_INSTANCE and _TOKEN',
+    throw notConfigured(
+      'mastodon',
+      mode(),
+      'Mastodon instance or token',
+      'PIGEON_MASTODON_INSTANCE and _TOKEN',
+      'instance, token',
     )
   }
 
@@ -305,4 +328,16 @@ function listen(handler: Handler<MastodonNotification>): () => void {
   return addListener('mastodon', handler)
 }
 
-export const mastodon = { post, edit, delete: remove, listen, notifications }
+/**
+ * The poller, if `receive` is on, is what gets restarted here. It starts over with no
+ * position, so the first round after a `configure()` only marks where the new account
+ * is and replays nothing.
+ */
+const lifecycle = defineLifecycle<MastodonCredentials>({
+  channel: 'mastodon',
+  mode,
+  resolve: settings,
+  assert: () => void credentials(),
+})
+
+export const mastodon = { post, edit, delete: remove, listen, notifications, ...lifecycle }

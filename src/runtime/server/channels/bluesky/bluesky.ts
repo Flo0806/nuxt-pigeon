@@ -1,13 +1,21 @@
 import { useRuntimeConfig } from '#imports'
+import {
+  getOverride,
+  notConfigured,
+  resolveCredentials,
+  type CredentialsMode,
+} from '../../core/credentials'
+import { defineLifecycle } from '../../core/lifecycle'
 import { addListener, type Handler } from '../../core/listeners'
 import { createRequest, type RequestOptions } from '../../core/request'
 import { toResult, type RawResponse } from '../../core/result'
 import { unsupported } from '../../core/unsupported'
 import { assertWithinLimit, detectRanges } from './format'
 import { assertImageCount, externalEmbed, imagesEmbed, uploadBlob } from './media'
-import { withSession, type Session } from './session'
+import { forgetSession, withSession, type Session } from './session'
 import type {
   BlueskyCommit,
+  BlueskyCredentials,
   BlueskyDeleteResult,
   BlueskyFacet,
   BlueskyHandle,
@@ -20,28 +28,42 @@ import type {
 
 const DEFAULT_SERVICE = 'https://bsky.social'
 
+function mode() {
+  // Generated runtime config types widen the literal to `string`.
+  return useRuntimeConfig().pigeon.channels.bluesky.credentials as CredentialsMode
+}
+
 function settings() {
   const { bluesky } = useRuntimeConfig().pigeon.channels
 
-  // Runtime config - or env as fallback
-  return {
-    service: bluesky.service || process.env.PIGEON_BLUESKY_SERVICE || DEFAULT_SERVICE,
-    identifier: bluesky.identifier || process.env.PIGEON_BLUESKY_IDENTIFIER,
-    password: bluesky.password || process.env.PIGEON_BLUESKY_PASSWORD,
-  }
+  return resolveCredentials<BlueskyCredentials>({
+    channel: 'bluesky',
+    mode: mode(),
+    // Runtime config - or env as fallback
+    static: {
+      service: bluesky.service || process.env.PIGEON_BLUESKY_SERVICE,
+      identifier: bluesky.identifier || process.env.PIGEON_BLUESKY_IDENTIFIER,
+      password: bluesky.password || process.env.PIGEON_BLUESKY_PASSWORD,
+    },
+    override: getOverride('bluesky'),
+    configured: (values) => !!(values.identifier && values.password),
+  })
 }
 
-function credentials() {
-  const { service, identifier, password } = settings()
+function credentials(): { service: string; identifier: string; password: string } {
+  const { service, identifier, password } = settings().values
 
   if (!identifier || !password) {
-    throw new Error(
-      'Bluesky identifier or app password is not defined. Set PIGEON_BLUESKY_IDENTIFIER ' +
-        'and _PASSWORD, and use an **app password**, never the account one',
+    throw notConfigured(
+      'bluesky',
+      mode(),
+      'Bluesky identifier or app password',
+      'PIGEON_BLUESKY_IDENTIFIER and _PASSWORD (an **app password**, never the account one)',
+      'identifier, password',
     )
   }
 
-  return { service, identifier, password }
+  return { service: service || DEFAULT_SERVICE, identifier, password }
 }
 
 /** AT Proto procedures are POST, queries are GET. This is the procedure half. */
@@ -316,7 +338,7 @@ function listen(handler: Handler<BlueskyNotification>): () => void {
 }
 
 /** Only `edit` is missing, and it is missing because Bluesky has no honest one. */
-const api = {
+const verbs = {
   post,
   delete: remove,
   listen,
@@ -328,6 +350,23 @@ const api = {
       'would look like it worked and do nothing. Delete the post and write a new one. ' +
       'https://github.com/bluesky-social/atproto/discussions/3038',
   ),
+}
+
+/**
+ * A `configure()` drops the session as well: it belongs to the old account, and a
+ * refresh on it would log the new credentials in as the wrong person.
+ */
+const lifecycle = defineLifecycle<BlueskyCredentials>({
+  channel: 'bluesky',
+  mode,
+  resolve: settings,
+  assert: () => void credentials(),
+  reset: forgetSession,
+})
+
+const api = {
+  ...verbs,
+  ...lifecycle,
 }
 
 export const bluesky: Omit<typeof api, 'edit'> = api

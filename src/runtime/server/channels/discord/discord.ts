@@ -1,10 +1,18 @@
 import { useRuntimeConfig } from '#imports'
 import { attach } from './attachments'
+import {
+  getOverride,
+  notConfigured,
+  resolveCredentials,
+  type CredentialsMode,
+} from '../../core/credentials'
+import { defineLifecycle } from '../../core/lifecycle'
 import { post } from '../../core/post'
 import type { RequestOptions } from '../../core/request'
 import { toResult, type RawResponse } from '../../core/result'
 import { assertWithinLimit, escapeMarkdown } from './format'
 import type {
+  DiscordCredentials,
   DiscordEditOptions,
   DiscordHandle,
   DiscordMessage,
@@ -12,11 +20,42 @@ import type {
   DiscordSendOptions,
 } from './types'
 
+function mode() {
+  // Generated runtime config types widen the literal to `string`.
+  return useRuntimeConfig().pigeon.channels.discord.credentials as CredentialsMode
+}
+
 function settings() {
   const { discord } = useRuntimeConfig().pigeon.channels
 
-  // Runtime config - or env as fallback
-  return { webhookUrl: discord.webhookUrl || process.env.PIGEON_DISCORD_WEBHOOK_URL }
+  return resolveCredentials<DiscordCredentials>({
+    channel: 'discord',
+    mode: mode(),
+    // Runtime config - or env as fallback
+    static: { webhookUrl: discord.webhookUrl || process.env.PIGEON_DISCORD_WEBHOOK_URL },
+    override: getOverride('discord'),
+    configured: (values) => !!values.webhookUrl,
+  })
+}
+
+/**
+ * The url a call goes to. A url is a channel here, so one per call is how a second
+ * server or channel is reached, the same way `chatId` works for Telegram.
+ */
+function webhookUrl(given?: string): string {
+  const url = given || settings().values.webhookUrl
+
+  if (!url) {
+    throw notConfigured(
+      'discord',
+      mode(),
+      'Discord webhook url',
+      'PIGEON_DISCORD_WEBHOOK_URL',
+      'webhookUrl',
+    )
+  }
+
+  return url
 }
 
 function result(response: RawResponse<DiscordMessage>, threadId?: string) {
@@ -35,12 +74,8 @@ function result(response: RawResponse<DiscordMessage>, threadId?: string) {
  * than from the handle on purpose: that url **is** the credential, and a handle is an
  * object users pass around and log.
  */
-function messageUrl(handle: DiscordHandle, threadId?: string): string {
-  const { webhookUrl } = settings()
-
-  if (!webhookUrl) {
-    throw new Error('Discord webhook url is not defined. Set PIGEON_DISCORD_WEBHOOK_URL')
-  }
+function messageUrl(handle: DiscordHandle, threadId?: string, given?: string): string {
+  const base = webhookUrl(given)
 
   if (!handle.id) {
     throw new Error(
@@ -50,7 +85,7 @@ function messageUrl(handle: DiscordHandle, threadId?: string): string {
     )
   }
 
-  const url = new URL(webhookUrl)
+  const url = new URL(base)
   url.pathname = `${url.pathname.replace(/\/$/, '')}/messages/${handle.id}`
 
   const thread = threadId ?? handle.threadId
@@ -66,16 +101,11 @@ function messageUrl(handle: DiscordHandle, threadId?: string): string {
  * carries the url. Discord only contributes its own field names and its limits.
  */
 async function send(text: string, options: DiscordSendOptions & RequestOptions = {}) {
-  const { webhookUrl } = settings()
-
-  if (!webhookUrl) {
-    throw new Error('Discord webhook url is not defined. Set PIGEON_DISCORD_WEBHOOK_URL')
-  }
+  const url = new URL(webhookUrl(options.webhookUrl))
 
   assertWithinLimit(text)
 
   const wait = options.wait ?? true
-  const url = new URL(webhookUrl)
   url.searchParams.set('wait', String(wait))
   if (options.threadId) {
     url.searchParams.set('thread_id', options.threadId)
@@ -125,7 +155,7 @@ async function edit(
   text: string,
   options: DiscordEditOptions & RequestOptions = {},
 ) {
-  const url = messageUrl(handle, options.threadId)
+  const url = messageUrl(handle, options.threadId, options.webhookUrl)
 
   assertWithinLimit(text)
 
@@ -157,8 +187,11 @@ async function edit(
 }
 
 /** Gone for good, and Discord answers 204, so there is nothing to read afterwards. */
-async function remove(handle: DiscordHandle, options: RequestOptions & { threadId?: string } = {}) {
-  const url = messageUrl(handle, options.threadId)
+async function remove(
+  handle: DiscordHandle,
+  options: RequestOptions & { threadId?: string; webhookUrl?: string } = {},
+) {
+  const url = messageUrl(handle, options.threadId, options.webhookUrl)
 
   const response = await post<undefined>(url, undefined, {
     ...options,
@@ -175,4 +208,12 @@ async function remove(handle: DiscordHandle, options: RequestOptions & { threadI
   } satisfies DiscordResult
 }
 
-export const discord = { send, edit, delete: remove, escapeMarkdown }
+/** Nothing runs for Discord, so `configure` only sets and `status` only tells. */
+const lifecycle = defineLifecycle<DiscordCredentials>({
+  channel: 'discord',
+  mode,
+  resolve: settings,
+  assert: () => void webhookUrl(),
+})
+
+export const discord = { send, edit, delete: remove, escapeMarkdown, ...lifecycle }

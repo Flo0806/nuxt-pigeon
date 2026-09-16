@@ -20,6 +20,19 @@ const DEFAULT_POLL_MS = 30_000
 /** No long running process, so a poller would start per request and never finish. */
 const SERVERLESS_PRESET = /^(cloudflare|vercel|netlify|deno|edge)/
 
+/**
+ * Where a channel's credentials come from.
+ *
+ * - `static`, the default: the config and the environment, read at startup
+ * - `runtime`: nothing until `channel.configure(...)` is called, typically with values
+ *   from a database. The environment is ignored, so the channel cannot start on a
+ *   leftover variable before the real values arrive
+ *
+ * `configure()` works in both modes. In `static` it replaces the environment and
+ * restarts the channel once for nothing, and says so.
+ */
+export type CredentialsMode = 'static' | 'runtime'
+
 export interface WebhookEndpoint {
   /** Falls back to `PIGEON_WEBHOOK_<NAME>_URL`, so it can stay out of the config. */
   url?: string
@@ -41,6 +54,7 @@ export interface WebhookOptions {
    * repeating urls. Secrets come from `PIGEON_WEBHOOK_<NAME>_SECRET`.
    */
   endpoints?: Record<string, WebhookEndpoint>
+  credentials?: CredentialsMode
 }
 
 export interface StreamOptions {
@@ -56,6 +70,7 @@ export interface StreamOptions {
 export interface DiscordOptions {
   /** Falls back to `PIGEON_DISCORD_WEBHOOK_URL`. The url itself is the credential. */
   webhookUrl?: string
+  credentials?: CredentialsMode
 }
 
 export interface TelegramOptions {
@@ -69,6 +84,7 @@ export interface TelegramOptions {
    */
   receive?: boolean
   route?: string
+  credentials?: CredentialsMode
 }
 
 export interface SlackOptions {
@@ -95,6 +111,7 @@ export interface SlackOptions {
    */
   receive?: boolean
   route?: string
+  credentials?: CredentialsMode
 }
 
 export interface NtfyOptions {
@@ -103,6 +120,7 @@ export interface NtfyOptions {
   /** Falls back to `PIGEON_NTFY_TOPIC`. **A public topic is readable by anyone who
    * knows its name**, so pick something unguessable or protect it with a token. */
   topic?: string
+  credentials?: CredentialsMode
 }
 
 export interface MastodonOptions {
@@ -115,6 +133,7 @@ export interface MastodonOptions {
   receive?: boolean
   /** Rate limit is 300 requests per five minutes, so this is generous. */
   intervalMs?: number
+  credentials?: CredentialsMode
 }
 
 export interface BlueskyOptions {
@@ -128,6 +147,7 @@ export interface BlueskyOptions {
    */
   receive?: boolean
   intervalMs?: number
+  credentials?: CredentialsMode
 }
 
 export interface ChannelOptions {
@@ -157,18 +177,37 @@ declare module 'nuxt/schema' {
         secret: string
         headers: Record<string, string>
         endpoints: Record<string, { url: string; secret: string; headers: Record<string, string> }>
+        credentials: CredentialsMode
       }
       channels: {
-        discord: { webhookUrl: string }
-        telegram: { token: string; chatId: string; secretToken: string; route: string }
-        slack: { webhookUrl: string; signingSecret: string; botToken: string; channel: string }
-        ntfy: { server: string; topic: string; token: string }
-        mastodon: { instance: string; token: string; intervalMs: number }
+        discord: { webhookUrl: string; credentials: CredentialsMode }
+        telegram: {
+          token: string
+          chatId: string
+          secretToken: string
+          route: string
+          credentials: CredentialsMode
+        }
+        slack: {
+          webhookUrl: string
+          signingSecret: string
+          botToken: string
+          channel: string
+          credentials: CredentialsMode
+        }
+        ntfy: { server: string; topic: string; token: string; credentials: CredentialsMode }
+        mastodon: {
+          instance: string
+          token: string
+          intervalMs: number
+          credentials: CredentialsMode
+        }
         bluesky: {
           service: string
           identifier: string
           password: string
           intervalMs: number
+          credentials: CredentialsMode
         }
       }
     }
@@ -215,27 +254,39 @@ export default defineNuxtModule<ModuleOptions>({
             { url: endpoint.url || '', secret: '', headers: endpoint.headers ?? {} },
           ]),
         ),
+        credentials: webhook.credentials ?? 'static',
       },
       channels: {
-        discord: { webhookUrl: discordOptions.webhookUrl || '' },
+        discord: {
+          webhookUrl: discordOptions.webhookUrl || '',
+          credentials: discordOptions.credentials ?? 'static',
+        },
         // The token never belongs in a config file, only the placeholder does.
         telegram: {
           token: '',
           chatId: String(telegramOptions.chatId ?? ''),
           secretToken: '',
           route: telegramRoute,
+          credentials: telegramOptions.credentials ?? 'static',
         },
         slack: {
           webhookUrl: slackOptions.webhookUrl || '',
           signingSecret: '',
           botToken: slackOptions.botToken || '',
           channel: slackOptions.channel || '',
+          credentials: slackOptions.credentials ?? 'static',
         },
-        ntfy: { server: ntfyOptions.server || '', topic: ntfyOptions.topic || '', token: '' },
+        ntfy: {
+          server: ntfyOptions.server || '',
+          topic: ntfyOptions.topic || '',
+          token: '',
+          credentials: ntfyOptions.credentials ?? 'static',
+        },
         mastodon: {
           instance: mastodonOptions.instance || '',
           token: '',
           intervalMs: mastodonOptions.intervalMs ?? DEFAULT_POLL_MS,
+          credentials: mastodonOptions.credentials ?? 'static',
         },
         bluesky: {
           service: blueskyOptions.service || '',
@@ -243,6 +294,7 @@ export default defineNuxtModule<ModuleOptions>({
           // The app password never belongs in a config file, only the placeholder.
           password: '',
           intervalMs: blueskyOptions.intervalMs ?? DEFAULT_POLL_MS,
+          credentials: blueskyOptions.credentials ?? 'static',
         },
       },
     }

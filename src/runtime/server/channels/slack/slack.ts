@@ -1,4 +1,11 @@
 import { useRuntimeConfig } from '#imports'
+import {
+  getOverride,
+  notConfigured,
+  resolveCredentials,
+  type CredentialsMode,
+} from '../../core/credentials'
+import { defineLifecycle } from '../../core/lifecycle'
 import { addListener, type Handler } from '../../core/listeners'
 import type { SlackEnvelope, SlackMessage } from './types'
 import { post } from '../../core/post'
@@ -72,15 +79,44 @@ export interface SlackResult extends PigeonResult<SlackMessage | string | undefi
   channel: 'slack'
 }
 
-function settings(): SlackCredentials {
+function mode() {
+  // Generated runtime config types widen the literal to `string`.
+  return useRuntimeConfig().pigeon.channels.slack.credentials as CredentialsMode
+}
+
+function resolved() {
   const { slack } = useRuntimeConfig().pigeon.channels
 
-  // Runtime config - or env as fallback
-  return {
-    webhookUrl: slack.webhookUrl || process.env.PIGEON_SLACK_WEBHOOK_URL,
-    botToken: slack.botToken || process.env.PIGEON_SLACK_BOT_TOKEN,
-    channel: slack.channel || process.env.PIGEON_SLACK_CHANNEL,
+  return resolveCredentials<SlackCredentials>({
+    channel: 'slack',
+    mode: mode(),
+    // Runtime config - or env as fallback
+    static: {
+      webhookUrl: slack.webhookUrl || process.env.PIGEON_SLACK_WEBHOOK_URL,
+      botToken: slack.botToken || process.env.PIGEON_SLACK_BOT_TOKEN,
+      channel: slack.channel || process.env.PIGEON_SLACK_CHANNEL,
+      signingSecret: slack.signingSecret || process.env.PIGEON_SLACK_SIGNING_SECRET,
+    },
+    override: getOverride('slack'),
+    // Either way in counts, `chooseMode` sorts out which one.
+    configured: (values) => !!(values.botToken || values.webhookUrl),
+  })
+}
+
+function settings(): SlackCredentials {
+  const { values, configured } = resolved()
+
+  // In `static` mode `chooseMode` has the better sentence, it names both variables.
+  if (!configured && mode() === 'runtime') {
+    throw notConfigured('slack', 'runtime', 'Slack bot token or webhook url', '', 'botToken')
   }
+
+  return values
+}
+
+/** For the route. Read per request, so `configure()` applies to the next event. */
+export function signingSecret(): string | undefined {
+  return resolved().values.signingSecret
 }
 
 /**
@@ -309,4 +345,12 @@ function listen(handler: Handler<SlackEnvelope>): () => void {
   return addListener('slack', handler)
 }
 
-export const slack = { send, edit, delete: remove, listen, escapeMrkdwn }
+/** Slack receives on a route, so there is nothing to restart, only values to set. */
+const lifecycle = defineLifecycle<SlackCredentials>({
+  channel: 'slack',
+  mode,
+  resolve: resolved,
+  assert: () => void chooseMode(settings()),
+})
+
+export const slack = { send, edit, delete: remove, listen, escapeMrkdwn, ...lifecycle }

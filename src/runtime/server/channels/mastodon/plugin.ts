@@ -1,5 +1,6 @@
 import { defineNitroPlugin } from 'nitropack/runtime'
 import { useRuntimeConfig } from '#imports'
+import { registerReceiver, startReceiver, stopReceiver } from '../../core/lifecycle'
 import { dispatch } from '../../core/listeners'
 import { startPolling } from '../../core/poller'
 import { plainText } from './format'
@@ -22,14 +23,19 @@ function toMessage(notification: MastodonNotification): PigeonMessage<MastodonNo
   }
 }
 
-export default defineNitroPlugin((nitro) => {
+/**
+ * One run of the poller, from a blank position. A function rather than the plugin
+ * body so `configure()` can call it again: every start gets its own `newest`, which
+ * is what makes a restart forget the old account.
+ */
+function start() {
   const { intervalMs } = useRuntimeConfig().pigeon.channels.mastodon
 
   /** Newest id we have handed on. Everything above it is unseen. */
   let newest: string | undefined
   let primed = false
 
-  const stop = startPolling('mastodon', { intervalMs }, async () => {
+  startPolling('mastodon', { intervalMs }, async () => {
     // `minId` walks forward from what we hold, so nothing in between is skipped.
     const { notifications } = await mastodon.notifications({ minId: newest, limit: 40 })
 
@@ -49,6 +55,21 @@ export default defineNitroPlugin((nitro) => {
     newest = notifications[0]!.id
     primed = true
   })
+}
 
-  nitro.hooks.hook('close', stop)
+export default defineNitroPlugin((nitro) => {
+  registerReceiver('mastodon', start)
+
+  // Without credentials the poller would only collect a 401 every round. It waits
+  // for `configure()` instead, and says so once when that is not the plan.
+  if (mastodon.status().configured) {
+    startReceiver('mastodon')
+  } else if (useRuntimeConfig().pigeon.channels.mastodon.credentials === 'static') {
+    console.info(
+      '[nuxt-pigeon] mastodon: no credentials, not polling. Set PIGEON_MASTODON_INSTANCE ' +
+        'and _TOKEN, or call mastodon.configure()',
+    )
+  }
+
+  nitro.hooks.hook('close', () => stopReceiver('mastodon'))
 })

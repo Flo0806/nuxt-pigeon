@@ -19,6 +19,15 @@ export interface BlueskyRecordRef {
  * The three parts `deleteRecord` wants. `send` hands them over as part of its result,
  * and an `at://` uri kept in your own database splits into exactly these.
  */
+export interface BlueskyCredentials {
+  /** Defaults to `https://bsky.social`. Your own PDS if you run one. */
+  service?: string
+  /** The handle or email. */
+  identifier?: string
+  /** An **app password** from Settings > Privacy and Security, never the account one. */
+  password?: string
+}
+
 export interface BlueskyHandle {
   repo: string
   collection: string

@@ -17,6 +17,15 @@ export interface NtfyMessage {
  * Topic and id are all it takes to point at a notification again, and the id may be
  * one you chose yourself, see `sequenceId`.
  */
+export interface NtfyCredentials {
+  /** Defaults to `https://ntfy.sh`. */
+  server?: string
+  /** Default topic. Every call can name another. */
+  topic?: string
+  /** Access token, for a protected topic or a self hosted server. */
+  token?: string
+}
+
 export interface NtfyHandle {
   /** Falls back to the configured topic when left out. */
   topic?: string

@@ -1,5 +1,6 @@
 import { defineNitroPlugin } from 'nitropack/runtime'
 import { useRuntimeConfig } from '#imports'
+import { registerReceiver, startReceiver, stopReceiver } from '../../core/lifecycle'
 import { dispatch } from '../../core/listeners'
 import { startPolling } from '../../core/poller'
 import { bluesky } from './bluesky'
@@ -21,13 +22,18 @@ function toMessage(notification: BlueskyNotification): PigeonMessage<BlueskyNoti
   }
 }
 
-export default defineNitroPlugin((nitro) => {
+/**
+ * One run of the poller, from a blank position. A function rather than the plugin
+ * body so `configure()` can call it again: every start gets its own `newest`, which
+ * is what makes a restart forget the old account.
+ */
+function start() {
   const { intervalMs } = useRuntimeConfig().pigeon.channels.bluesky
 
   /** The newest `indexedAt` we have handed on. Anything above it is unseen. */
   let newest: string | undefined
 
-  const stop = startPolling('bluesky', { intervalMs }, async () => {
+  startPolling('bluesky', { intervalMs }, async () => {
     // The cursor pages backwards, so there is no "since". The newest page plus a
     // comparison is the only way to find what arrived.
     const { notifications } = await bluesky.notifications({ limit: 50 })
@@ -49,6 +55,21 @@ export default defineNitroPlugin((nitro) => {
 
     newest = notifications[0]!.indexedAt
   })
+}
 
-  nitro.hooks.hook('close', stop)
+export default defineNitroPlugin((nitro) => {
+  registerReceiver('bluesky', start)
+
+  // Without credentials the poller would only fail to log in every round. It waits
+  // for `configure()` instead, and says so once when that is not the plan.
+  if (bluesky.status().configured) {
+    startReceiver('bluesky')
+  } else if (useRuntimeConfig().pigeon.channels.bluesky.credentials === 'static') {
+    console.info(
+      '[nuxt-pigeon] bluesky: no credentials, not polling. Set PIGEON_BLUESKY_IDENTIFIER ' +
+        'and _PASSWORD, or call bluesky.configure()',
+    )
+  }
+
+  nitro.hooks.hook('close', () => stopReceiver('bluesky'))
 })

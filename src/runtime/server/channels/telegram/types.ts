@@ -47,6 +47,15 @@ export interface TelegramEnvelope<T> {
  * result, and it is all `edit` and `delete` ask for, so a message id kept in your own
  * database can be turned back into a handle without guessing.
  */
+export interface TelegramCredentials {
+  /** From @BotFather. */
+  token?: string
+  /** Default destination. Every call can name another. */
+  chatId?: string | number
+  /** What the route checks incoming updates against. Needed to receive, not to send. */
+  secretToken?: string
+}
+
 export interface TelegramHandle {
   /** Where it actually went, which is not always the configured chat. */
   chatId: string | number

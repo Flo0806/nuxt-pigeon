@@ -11,6 +11,13 @@ import type { PigeonResult } from '../../core/result'
  * part of it: the token belongs to one instance, so editing somewhere else could not
  * work anyway, and the host comes from the config just like when sending.
  */
+export interface MastodonCredentials {
+  /** Form `https://mastodon.social`. */
+  instance?: string
+  /** An access token with `write:statuses`, plus `read:notifications` to receive. */
+  token?: string
+}
+
 export interface MastodonHandle {
   id?: string
   /**

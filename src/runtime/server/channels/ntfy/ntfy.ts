@@ -1,23 +1,58 @@
 import { useRuntimeConfig } from '#imports'
+import {
+  getOverride,
+  notConfigured,
+  resolveCredentials,
+  type CredentialsMode,
+} from '../../core/credentials'
+import { defineLifecycle } from '../../core/lifecycle'
 import { post } from '../../core/post'
 import type { RequestOptions } from '../../core/request'
 import { isUrlMedia, resolveMedia } from '../../core/media'
 import { toResult, type RawResponse } from '../../core/result'
 import { assertWithinLimit } from './format'
 import { uploadHeaders } from './media'
-import type { NtfyHandle, NtfyMessage, NtfyResult, NtfySendOptions } from './types'
+import type { NtfyCredentials, NtfyHandle, NtfyMessage, NtfyResult, NtfySendOptions } from './types'
 
 const DEFAULT_SERVER = 'https://ntfy.sh'
 
-function settings() {
+function mode() {
+  // Generated runtime config types widen the literal to `string`.
+  return useRuntimeConfig().pigeon.channels.ntfy.credentials as CredentialsMode
+}
+
+function resolved() {
   const { ntfy } = useRuntimeConfig().pigeon.channels
 
-  // Runtime config - or env as fallback
-  return {
-    server: ntfy.server || process.env.PIGEON_NTFY_SERVER || DEFAULT_SERVER,
-    topic: ntfy.topic || process.env.PIGEON_NTFY_TOPIC,
-    token: ntfy.token || process.env.PIGEON_NTFY_TOKEN,
+  return resolveCredentials<NtfyCredentials>({
+    channel: 'ntfy',
+    mode: mode(),
+    // Runtime config - or env as fallback
+    static: {
+      server: ntfy.server || process.env.PIGEON_NTFY_SERVER,
+      topic: ntfy.topic || process.env.PIGEON_NTFY_TOPIC,
+      token: ntfy.token || process.env.PIGEON_NTFY_TOKEN,
+    },
+    override: getOverride('ntfy'),
+    // A public topic on ntfy.sh needs nothing else, so the topic is the one thing.
+    configured: (values) => !!values.topic,
+  })
+}
+
+function settings() {
+  const { server, topic, token } = resolved().values
+
+  return { server: server || DEFAULT_SERVER, topic, token }
+}
+
+function requireTopic(given?: string): string {
+  const topic = given || settings().topic
+
+  if (!topic) {
+    throw notConfigured('ntfy', mode(), 'ntfy topic', 'PIGEON_NTFY_TOPIC', 'topic')
   }
+
+  return topic
 }
 
 /**
@@ -29,12 +64,8 @@ function settings() {
  * so the reason above does not apply to them.
  */
 async function send(text: string, options: NtfySendOptions & RequestOptions = {}) {
-  const { server, topic: configured, token } = settings()
-  const topic = options.topic || configured
-
-  if (!topic) {
-    throw new Error('ntfy topic is not defined. Set PIGEON_NTFY_TOPIC or pass one per call')
-  }
+  const { server, token } = settings()
+  const topic = requireTopic(options.topic)
 
   assertWithinLimit(text)
 
@@ -168,4 +199,12 @@ async function remove(handle: NtfyHandle, options: RequestOptions = {}) {
   } satisfies NtfyResult
 }
 
-export const ntfy = { send, edit, delete: remove }
+/** Nothing runs for ntfy, so `configure` only sets and `status` only tells. */
+const lifecycle = defineLifecycle<NtfyCredentials>({
+  channel: 'ntfy',
+  mode,
+  resolve: resolved,
+  assert: () => void requireTopic(),
+})
+
+export const ntfy = { send, edit, delete: remove, ...lifecycle }

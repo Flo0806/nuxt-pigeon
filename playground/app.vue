@@ -16,6 +16,7 @@
     <MastodonCard />
     <BlueskyCard />
     <WebhookCard />
+    <LifecycleCard />
     <RetryCard />
   </main>
 </template>

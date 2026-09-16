@@ -9,7 +9,10 @@
 export interface SlackCredentials {
   webhookUrl?: string
   botToken?: string
+  /** Default channel id for the bot token. Every call can name another. */
   channel?: string
+  /** What the route checks incoming events against. Needed to receive, not to send. */
+  signingSecret?: string
 }
 
 export type SlackMode = 'bot' | 'webhook'
