@@ -78,6 +78,8 @@ PIGEON_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/…
 
 Secrets live in `.env`, never in `nuxt.config.ts`. Every value can also be set in the config if it is not a secret, and every call can override it.
 
+**Tokens from a database instead?** Set `credentials: 'runtime'` on the channel and hand them over with `mastodon.configure({ instance, token })`, at startup from a Nitro plugin and again whenever they change. The channel restarts on the new values, no redeploy. See [credentials at runtime](https://pigeon.fh-softdev.de/getting-started/credentials).
+
 ## Sending
 
 Each channel is auto imported on the server. No `import`, no setup.
