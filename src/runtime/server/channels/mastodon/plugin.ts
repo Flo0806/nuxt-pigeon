@@ -1,5 +1,5 @@
 import { defineNitroPlugin } from 'nitropack/runtime'
-import { useRuntimeConfig } from '#imports'
+import { useRuntimeConfig } from '#pigeon/config'
 import { registerReceiver, startReceiver, stopReceiver } from '../../core/lifecycle'
 import { dispatch } from '../../core/listeners'
 import { startPolling } from '../../core/poller'

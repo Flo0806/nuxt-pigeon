@@ -5,6 +5,7 @@ import {
   addServerPlugin,
   createResolver,
   defineNuxtModule,
+  resolveServerVariant,
   useLogger,
 } from '@nuxt/kit'
 
@@ -306,6 +307,16 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Public because the composable runs in the browser and needs the path.
     nuxt.options.runtimeConfig.public.pigeon = { streamRoute, streaming }
+
+    // Nuxt picks the file for the server API the app runs: `nuxt/server` from 4.6 on,
+    // `#imports` before that. Server files only ever import `#pigeon/config`.
+    const config = resolveServerVariant({
+      nuxt: resolver.resolve('./runtime/server/core/config'),
+      nitro2: resolver.resolve('./runtime/server/legacy/core/config'),
+    })
+    if (config) {
+      nuxt.options.alias['#pigeon/config'] = config
+    }
 
     // Hands Nitro a path, never an import. Anything imported here would run in the
     // build process, which has neither the user's .env nor their cwd.
