@@ -3,6 +3,8 @@
 # official Nuxt module starter has it. Docs is a real app of its own.
 packages:
   - docs
+  - playground-v5
+  - test/fixtures/server-v5
 
 allowBuilds:
   better-sqlite3: true
