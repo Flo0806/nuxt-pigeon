@@ -8,7 +8,7 @@
     "generate": "nuxt generate"
   },
   "dependencies": {
-    "nuxt": "^4.5.1",
+    "nuxt": "^4.6.1",
     "nuxt-pigeon": "latest"
   }
 }
