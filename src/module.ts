@@ -1,8 +1,8 @@
 import {
   addImports,
+  addNitroPlugin,
   addServerHandler,
   addServerImports,
-  addServerPlugin,
   createResolver,
   defineNuxtModule,
   resolveServerVariant,
@@ -417,7 +417,10 @@ export default defineNuxtModule<ModuleOptions>({
       logger.info('mastodon posts publicly, it uses post() not send()')
 
       if (mastodonOptions.receive) {
-        addServerPlugin(resolver.resolve('./runtime/server/channels/mastodon/plugin'))
+        addNitroPlugin({
+          nitro2: resolver.resolve('./runtime/server/channels/mastodon/plugin'),
+          nitro3: resolver.resolve('./runtime/server/channels/mastodon/plugin'),
+        })
 
         const preset = nuxt.options.nitro.preset
         if (preset && SERVERLESS_PRESET.test(preset)) {
@@ -437,7 +440,10 @@ export default defineNuxtModule<ModuleOptions>({
       logger.info('bluesky posts publicly, it uses post() not send()')
 
       if (blueskyOptions.receive) {
-        addServerPlugin(resolver.resolve('./runtime/server/channels/bluesky/plugin'))
+        addNitroPlugin({
+          nitro2: resolver.resolve('./runtime/server/channels/bluesky/plugin'),
+          nitro3: resolver.resolve('./runtime/server/channels/bluesky/plugin'),
+        })
 
         const preset = nuxt.options.nitro.preset
         if (preset && SERVERLESS_PRESET.test(preset)) {
