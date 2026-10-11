@@ -1,4 +1,4 @@
-import { createEventStream, defineEventHandler, setResponseHeaders } from 'h3'
+import { defineEventHandler, EventStream } from 'nitro/h3'
 import { addListener, ANY } from '../core/listeners'
 
 /**
@@ -16,9 +16,9 @@ const HEARTBEAT_MS = 30_000
 
 export default defineEventHandler((event) => {
   // Anything that buffers breaks a stream. nginx and several proxies honour this.
-  setResponseHeaders(event, { 'x-accel-buffering': 'no' })
+  event.res.headers.set('x-accel-buffering', 'no')
 
-  const stream = createEventStream(event)
+  const stream = new EventStream(event)
 
   // No named event: a named one would need addEventListener on the client and
   // onmessage would stay silent. The channel travels inside the data instead.

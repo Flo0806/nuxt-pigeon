@@ -332,7 +332,10 @@ export default defineNuxtModule<ModuleOptions>({
     if (streaming) {
       addServerHandler({
         route: streamRoute,
-        handler: resolver.resolve('./runtime/server/stream/route'),
+        handler: {
+          nitro3: resolver.resolve('./runtime/server/stream/route'),
+          nitro2: resolver.resolve('./runtime/server/stream/route.legacy'),
+        },
       })
     }
 
