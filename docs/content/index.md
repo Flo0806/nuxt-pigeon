@@ -8,6 +8,8 @@ navigation: false
 
 Seven services want to be talked to in seven different ways. You write one.
 
+:hero-actions
+
 ```ts [server/api/deploy.post.ts]
 await telegram.send('Deploy failed on main')
 ```
