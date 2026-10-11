@@ -1,3 +1,5 @@
+import { defineEventHandler, getRequestURL, useRuntimeConfig } from 'nuxt/server'
+
 /**
  * The names of the configured endpoints, and whether each has a url and a secret.
  * Names and the presence of a secret are useful on a page, the values are not.

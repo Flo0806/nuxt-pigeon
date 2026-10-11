@@ -1,3 +1,4 @@
+import { defineEventHandler, readBody } from 'nuxt/server'
 import type { DiscordHandle } from '../../../src/runtime/server/channels/discord/types'
 
 /**

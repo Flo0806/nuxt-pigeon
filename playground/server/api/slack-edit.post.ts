@@ -1,3 +1,5 @@
+import { defineEventHandler, readBody } from 'nuxt/server'
+
 /**
  * The handle is the channel id plus the `ts`. Both only exist in bot mode: an incoming
  * webhook answers with `ok` and nothing to point at.

@@ -1,3 +1,4 @@
+import { defineEventHandler, readBody } from 'nuxt/server'
 import type { TelegramHandle } from '../../../src/runtime/server/channels/telegram/types'
 
 /**

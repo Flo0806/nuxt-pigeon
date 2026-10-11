@@ -1,3 +1,4 @@
+import { defineEventHandler } from 'nuxt/server'
 import { isPolling } from '../../../src/runtime/server/core/poller'
 
 /** So a silent poller can be told apart from one that never started. */

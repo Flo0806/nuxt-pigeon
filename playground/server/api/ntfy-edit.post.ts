@@ -1,3 +1,5 @@
+import { defineEventHandler, readBody } from 'nuxt/server'
+
 /**
  * The handle is the topic plus the id. The id may be the one ntfy handed out, or one
  * you chose yourself when publishing (`sequenceId`), which is what makes a repeatedly

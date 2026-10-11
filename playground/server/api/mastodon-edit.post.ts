@@ -1,3 +1,5 @@
+import { defineEventHandler, readBody } from 'nuxt/server'
+
 /**
  * The handle is the id plus the ids of the files on it. The instance is not part of
  * it: the token belongs to one instance, so it comes from the config either way.

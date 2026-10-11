@@ -1,3 +1,5 @@
+import { defineEventHandler, readBody } from 'nuxt/server'
+
 export default defineEventHandler(async (event) => {
   const { text, facets, mediaUrl, alt, cardUrl, cardTitle, cardDescription } = await readBody<{
     text: string

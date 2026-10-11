@@ -1,3 +1,4 @@
+import { defineEventHandler, useRuntimeConfig } from 'nuxt/server'
 import { createRequest } from '../../../src/runtime/server/core/request'
 import {
   MASTODON_DEFAULT_ATTACHMENTS,

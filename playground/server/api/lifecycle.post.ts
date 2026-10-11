@@ -1,3 +1,5 @@
+import { defineEventHandler, readBody } from 'nuxt/server'
+
 const channels = { telegram, discord, slack, ntfy, mastodon, bluesky, webhook }
 
 type Channel = keyof typeof channels

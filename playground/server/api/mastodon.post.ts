@@ -1,3 +1,4 @@
+import { defineEventHandler, readBody } from 'nuxt/server'
 import type { MastodonVisibility } from '../../../src/runtime/server/channels/mastodon/types'
 
 export default defineEventHandler(async (event) => {

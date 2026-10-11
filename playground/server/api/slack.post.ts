@@ -1,3 +1,5 @@
+import { defineEventHandler, readBody } from 'nuxt/server'
+
 export default defineEventHandler(async (event) => {
   const { text, mrkdwn, escape, channelId, threadTs, mediaUrl } = await readBody<{
     text: string

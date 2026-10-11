@@ -1,3 +1,5 @@
+import { defineEventHandler, useRuntimeConfig } from 'nuxt/server'
+
 /**
  * What the ntfy card needs to describe itself. The server is worth naming, because
  * updating and deleting needs **2.16.0 or newer** and a self hosted one may be older.

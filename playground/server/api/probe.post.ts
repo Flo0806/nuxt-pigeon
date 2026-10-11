@@ -1,3 +1,4 @@
+import { defineEventHandler, readBody } from 'nuxt/server'
 import { createRequest } from '../../../src/runtime/server/core/request'
 
 /**

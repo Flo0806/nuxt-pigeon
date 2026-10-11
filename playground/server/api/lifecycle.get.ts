@@ -1,3 +1,5 @@
+import { defineEventHandler } from 'nuxt/server'
+
 /**
  * What every channel is running on right now. `source` is the interesting column:
  * `static` is the environment, `runtime` is a `configure()` call, `none` is neither.

@@ -1,3 +1,5 @@
+import { defineEventHandler, readBody } from 'nuxt/server'
+
 export default defineEventHandler(async (event) => {
   const { repo, collection, rkey } = await readBody<{
     repo: string
