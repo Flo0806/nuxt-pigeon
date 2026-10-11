@@ -46,6 +46,7 @@
     "prepack": "nuxt-module-build build",
     "dev": "npm run dev:prepare && nuxt dev playground",
     "dev:build": "nuxt build playground",
+    "dev:v5": "npm run dev:prepare && pnpm --filter ./playground-v5 dev",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
     "dev:docs": "pnpm --filter docs dev --port 3001",
     "docs:build": "pnpm --filter docs build",
@@ -59,19 +60,21 @@
     "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
   },
   "dependencies": {
-    "@nuxt/kit": "^4.5.1",
+    "@nuxt/kit": "^4.6.1",
     "ofetch": "^1.5.1"
   },
   "devDependencies": {
     "@nuxt/devtools": "^3.4.0",
     "@nuxt/eslint-config": "^1.16.0",
     "@nuxt/module-builder": "^1.0.3",
-    "@nuxt/schema": "^4.5.1",
+    "@nuxt/schema": "^4.6.1",
     "@nuxt/test-utils": "^4.1.0",
     "@types/node": "latest",
     "changelogen": "^0.6.2",
     "eslint": "^10.8.0",
-    "nuxt": "^4.5.1",
+    "h3-v2": "npm:h3@^2.0.2",
+    "nitro": "3.0.260903-beta",
+    "nuxt": "^4.6.1",
     "oxfmt": "^0.62.0",
     "oxlint": "^1.77.0",
     "typescript": "~5.9.3",

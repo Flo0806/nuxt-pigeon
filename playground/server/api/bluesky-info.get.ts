@@ -1,3 +1,5 @@
+import { defineEventHandler, useRuntimeConfig } from 'nuxt/server'
+
 /**
  * Booleans and the service, never the credentials. The identifier is a handle or an
  * email, and an email has no business on a page.

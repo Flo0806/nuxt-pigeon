@@ -1,4 +1,4 @@
-import { useRuntimeConfig } from '#imports'
+import { useRuntimeConfig } from '#pigeon/config'
 import { getOverride, resolveCredentials, type CredentialsMode } from '../core/credentials'
 import { resolveEndpoint, type WebhookConfig } from '../core/endpoint'
 import { defineLifecycle } from '../core/lifecycle'

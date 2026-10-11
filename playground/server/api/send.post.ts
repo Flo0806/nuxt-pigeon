@@ -1,3 +1,5 @@
+import { defineEventHandler, readBody } from 'nuxt/server'
+
 /**
  * Layer 1 with config. `webhook` is auto imported, the url and the secret come from
  * nuxt.config and .env, so nothing but the payload is passed here.

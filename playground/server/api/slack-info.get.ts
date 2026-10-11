@@ -1,3 +1,5 @@
+import { defineEventHandler, useRuntimeConfig } from 'nuxt/server'
+
 /**
  * Which of the two modes Slack is in. Answers with **booleans, never values**: whether
  * a token exists is useful on a page, the token itself has no business there.

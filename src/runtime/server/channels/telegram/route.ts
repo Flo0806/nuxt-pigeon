@@ -1,12 +1,12 @@
 import {
   createError,
   defineEventHandler,
-  getHeader,
+  getRequestHeader,
   getRequestHeaders,
-  readRawBody,
   setResponseStatus,
-} from 'h3'
+} from 'nuxt/server'
 import { dispatch } from '../../core/listeners'
+import { waitUntil } from '../../core/wait-until'
 import { safeEqual } from '../../core/verify'
 import { normalise } from './normalise'
 import { secretToken } from './telegram'
@@ -21,16 +21,16 @@ export default defineEventHandler(async (event) => {
   // Without a secret the route is open to anyone who guesses the path, and forged
   // updates are indistinguishable from real ones. Refusing beats accepting.
   if (!secret) {
-    throw createError({ statusCode: 503, statusMessage: 'Telegram secret token is not configured' })
+    throw createError({ status: 503, statusText: 'Telegram secret token is not configured' })
   }
 
-  if (!safeEqual(getHeader(event, SECRET_HEADER) || '', secret)) {
-    throw createError({ statusCode: 401, statusMessage: 'Invalid secret token' })
+  if (!safeEqual(getRequestHeader(event, SECRET_HEADER) || '', secret)) {
+    throw createError({ status: 401, statusText: 'Invalid secret token' })
   }
 
-  const raw = await readRawBody(event)
+  const raw = await event.req.text()
   if (!raw) {
-    throw createError({ statusCode: 400, statusMessage: 'Empty body' })
+    throw createError({ status: 400, statusText: 'Empty body' })
   }
 
   const update = JSON.parse(raw) as TelegramUpdate
@@ -40,12 +40,12 @@ export default defineEventHandler(async (event) => {
     at: new Date().toISOString(),
     raw,
     body: update,
-    headers: getRequestHeaders(event) as Record<string, string>,
+    headers: getRequestHeaders(event),
     ...normalise(update),
   }
 
   // Telegram retries an update it gets no quick answer for, so acknowledge first.
-  event.waitUntil(dispatch('telegram', message))
+  waitUntil(event, dispatch('telegram', message))
 
   setResponseStatus(event, 200)
 

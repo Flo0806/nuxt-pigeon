@@ -1,4 +1,4 @@
-import { useRuntimeConfig } from '#imports'
+import { useRuntimeConfig } from '#pigeon/config'
 import { attach } from './attachments'
 import {
   getOverride,

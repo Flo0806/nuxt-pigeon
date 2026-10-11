@@ -1,7 +1,10 @@
+import { fileURLToPath } from 'node:url'
+
 export default defineNuxtConfig({
   modules: ['nuxt-pigeon'],
   devtools: { enabled: true },
-  css: ['~/assets/pigeon.css'],
+  // Relative to this file, not `~`: playground-v5 extends this config, and there `~` is its own srcDir.
+  css: [fileURLToPath(new URL('./assets/pigeon.css', import.meta.url))],
   compatibilityDate: 'latest',
   nuxtPigeon: {
     channels: {

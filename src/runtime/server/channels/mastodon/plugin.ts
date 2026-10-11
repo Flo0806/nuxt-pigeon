@@ -1,5 +1,5 @@
-import { defineNitroPlugin } from 'nitropack/runtime'
-import { useRuntimeConfig } from '#imports'
+import type { NitroAppPlugin } from 'nitropack'
+import { useRuntimeConfig } from '#pigeon/config'
 import { registerReceiver, startReceiver, stopReceiver } from '../../core/lifecycle'
 import { dispatch } from '../../core/listeners'
 import { startPolling } from '../../core/poller'
@@ -57,7 +57,9 @@ function start() {
   })
 }
 
-export default defineNitroPlugin((nitro) => {
+// Not `defineNitroPlugin`: it is an identity function, and a type-only import keeps this one
+// file valid on Nitro v2 and v3 alike.
+export default <NitroAppPlugin>function (nitro) {
   registerReceiver('mastodon', start)
 
   // Without credentials the poller would only collect a 401 every round. It waits
@@ -72,4 +74,4 @@ export default defineNitroPlugin((nitro) => {
   }
 
   nitro.hooks.hook('close', () => stopReceiver('mastodon'))
-})
+}

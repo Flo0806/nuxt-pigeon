@@ -1,3 +1,5 @@
+import { defineEventHandler, readBody } from 'nuxt/server'
+
 export default defineEventHandler(async (event) => {
   const { action, baseUrl } = await readBody<{ action: string; baseUrl: string }>(event)
 

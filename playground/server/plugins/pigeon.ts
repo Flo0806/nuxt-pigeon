@@ -1,3 +1,4 @@
+import type { NitroAppPlugin } from 'nitropack'
 import { received } from '../utils/received'
 import type { PigeonMessage } from '../../../src/runtime/types'
 
@@ -5,7 +6,7 @@ import type { PigeonMessage } from '../../../src/runtime/types'
  * How a user registers a listener: once at startup, from a Nitro plugin. The returned
  * function unregisters again, which keeps a hot reload from stacking copies.
  */
-export default defineNitroPlugin((nitro) => {
+export default <NitroAppPlugin>function (nitro) {
   const keep = (message: PigeonMessage) => {
     received.unshift(message)
     received.length = Math.min(received.length, 10)
@@ -20,4 +21,4 @@ export default defineNitroPlugin((nitro) => {
   ]
 
   nitro.hooks.hook('close', () => stops.forEach((stop) => stop()))
-})
+}

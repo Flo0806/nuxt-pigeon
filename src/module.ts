@@ -1,10 +1,11 @@
 import {
   addImports,
+  addNitroPlugin,
   addServerHandler,
   addServerImports,
-  addServerPlugin,
   createResolver,
   defineNuxtModule,
+  resolveServerVariant,
   useLogger,
 } from '@nuxt/kit'
 
@@ -307,6 +308,16 @@ export default defineNuxtModule<ModuleOptions>({
     // Public because the composable runs in the browser and needs the path.
     nuxt.options.runtimeConfig.public.pigeon = { streamRoute, streaming }
 
+    // Nuxt picks the file for the server API the app runs: `nuxt/server` from 4.6 on,
+    // `#imports` before that. Server files only ever import `#pigeon/config`.
+    const config = resolveServerVariant({
+      nuxt: resolver.resolve('./runtime/server/core/config'),
+      nitro2: resolver.resolve('./runtime/server/core/config.legacy'),
+    })
+    if (config) {
+      nuxt.options.alias['#pigeon/config'] = config
+    }
+
     // Hands Nitro a path, never an import. Anything imported here would run in the
     // build process, which has neither the user's .env nor their cwd.
     addServerImports({
@@ -321,7 +332,10 @@ export default defineNuxtModule<ModuleOptions>({
     if (streaming) {
       addServerHandler({
         route: streamRoute,
-        handler: resolver.resolve('./runtime/server/stream/route'),
+        handler: {
+          nitro3: resolver.resolve('./runtime/server/stream/route'),
+          nitro2: resolver.resolve('./runtime/server/stream/route.legacy'),
+        },
       })
     }
 
@@ -342,7 +356,10 @@ export default defineNuxtModule<ModuleOptions>({
         addServerHandler({
           route: telegramRoute,
           method: 'post',
-          handler: resolver.resolve('./runtime/server/channels/telegram/route'),
+          handler: {
+            nuxt: resolver.resolve('./runtime/server/channels/telegram/route'),
+            nitro2: resolver.resolve('./runtime/server/channels/telegram/route.legacy'),
+          },
         })
 
         if (nuxt.options.dev) {
@@ -364,7 +381,10 @@ export default defineNuxtModule<ModuleOptions>({
         addServerHandler({
           route: slackRoute,
           method: 'post',
-          handler: resolver.resolve('./runtime/server/channels/slack/route'),
+          handler: {
+            nuxt: resolver.resolve('./runtime/server/channels/slack/route'),
+            nitro2: resolver.resolve('./runtime/server/channels/slack/route.legacy'),
+          },
         })
 
         if (nuxt.options.dev) {
@@ -397,7 +417,10 @@ export default defineNuxtModule<ModuleOptions>({
       logger.info('mastodon posts publicly, it uses post() not send()')
 
       if (mastodonOptions.receive) {
-        addServerPlugin(resolver.resolve('./runtime/server/channels/mastodon/plugin'))
+        addNitroPlugin({
+          nitro2: resolver.resolve('./runtime/server/channels/mastodon/plugin'),
+          nitro3: resolver.resolve('./runtime/server/channels/mastodon/plugin'),
+        })
 
         const preset = nuxt.options.nitro.preset
         if (preset && SERVERLESS_PRESET.test(preset)) {
@@ -417,7 +440,10 @@ export default defineNuxtModule<ModuleOptions>({
       logger.info('bluesky posts publicly, it uses post() not send()')
 
       if (blueskyOptions.receive) {
-        addServerPlugin(resolver.resolve('./runtime/server/channels/bluesky/plugin'))
+        addNitroPlugin({
+          nitro2: resolver.resolve('./runtime/server/channels/bluesky/plugin'),
+          nitro3: resolver.resolve('./runtime/server/channels/bluesky/plugin'),
+        })
 
         const preset = nuxt.options.nitro.preset
         if (preset && SERVERLESS_PRESET.test(preset)) {
@@ -433,7 +459,10 @@ export default defineNuxtModule<ModuleOptions>({
       addServerHandler({
         route: webhook.route || DEFAULT_ROUTE,
         method: 'post',
-        handler: resolver.resolve('./runtime/server/webhook/route'),
+        handler: {
+          nuxt: resolver.resolve('./runtime/server/webhook/route'),
+          nitro2: resolver.resolve('./runtime/server/webhook/route.legacy'),
+        },
       })
     }
   },

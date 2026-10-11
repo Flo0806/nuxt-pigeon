@@ -1,3 +1,4 @@
+import { defineEventHandler, readBody } from 'nuxt/server'
 import type { NtfyPriority } from '../../../src/runtime/server/channels/ntfy/types'
 
 export default defineEventHandler(async (event) => {

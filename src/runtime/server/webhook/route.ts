@@ -1,11 +1,6 @@
-import {
-  createError,
-  defineEventHandler,
-  getRequestHeaders,
-  readRawBody,
-  setResponseStatus,
-} from 'h3'
+import { createError, defineEventHandler, getRequestHeaders, setResponseStatus } from 'nuxt/server'
 import { dispatch } from '../core/listeners'
+import { waitUntil } from '../core/wait-until'
 import type { PigeonMessage } from '../../types'
 
 /**
@@ -16,10 +11,10 @@ import type { PigeonMessage } from '../../types'
  * the delivery as failed and sends it again, and then the same message arrives twice.
  */
 export default defineEventHandler(async (event) => {
-  const raw = await readRawBody(event)
+  const raw = await event.req.text()
 
   if (!raw) {
-    throw createError({ statusCode: 400, statusMessage: 'Empty body' })
+    throw createError({ status: 400, statusText: 'Empty body' })
   }
 
   let body: unknown = raw
@@ -34,10 +29,10 @@ export default defineEventHandler(async (event) => {
     at: new Date().toISOString(),
     raw,
     body,
-    headers: getRequestHeaders(event) as Record<string, string>,
+    headers: getRequestHeaders(event),
   }
 
-  event.waitUntil(dispatch('webhook', message))
+  waitUntil(event, dispatch('webhook', message))
 
   setResponseStatus(event, 202)
 

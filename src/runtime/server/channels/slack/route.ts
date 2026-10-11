@@ -1,12 +1,12 @@
 import {
   createError,
   defineEventHandler,
-  getHeader,
+  getRequestHeader,
   getRequestHeaders,
-  readRawBody,
   setResponseStatus,
-} from 'h3'
+} from 'nuxt/server'
 import { dispatch } from '../../core/listeners'
+import { waitUntil } from '../../core/wait-until'
 import { signingSecret } from './slack'
 import { verifySignature } from './verify'
 import type { PigeonMessage } from '../../../types'
@@ -19,24 +19,24 @@ export default defineEventHandler(async (event) => {
   const secret = signingSecret()
 
   if (!secret) {
-    throw createError({ statusCode: 503, statusMessage: 'Slack signing secret is not configured' })
+    throw createError({ status: 503, statusText: 'Slack signing secret is not configured' })
   }
 
   // Raw, not parsed: the signature covers the exact bytes Slack sent.
-  const rawBody = await readRawBody(event)
+  const rawBody = await event.req.text()
   if (!rawBody) {
-    throw createError({ statusCode: 400, statusMessage: 'Empty body' })
+    throw createError({ status: 400, statusText: 'Empty body' })
   }
 
   const valid = await verifySignature({
-    signature: getHeader(event, SIGNATURE_HEADER) || '',
-    timestamp: getHeader(event, TIMESTAMP_HEADER) || '',
+    signature: getRequestHeader(event, SIGNATURE_HEADER) || '',
+    timestamp: getRequestHeader(event, TIMESTAMP_HEADER) || '',
     rawBody,
     signingSecret: secret,
   })
 
   if (!valid) {
-    throw createError({ statusCode: 401, statusMessage: 'Invalid signature' })
+    throw createError({ status: 401, statusText: 'Invalid signature' })
   }
 
   const envelope = JSON.parse(rawBody) as SlackEnvelope
@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
     at: new Date().toISOString(),
     raw: rawBody,
     body: envelope,
-    headers: getRequestHeaders(event) as Record<string, string>,
+    headers: getRequestHeaders(event),
     // `app_mention` and `message` both fire for one mention, so this is what tells
     // the two deliveries apart.
     type: envelope.event?.type ?? envelope.type,
@@ -62,7 +62,7 @@ export default defineEventHandler(async (event) => {
 
   // Slack wants an answer within **three** seconds and redelivers up to three times
   // without one. So acknowledge now and let the handlers run after the response.
-  event.waitUntil(dispatch('slack', message))
+  waitUntil(event, dispatch('slack', message))
 
   // An explicit 200 with an empty body: the docs only promise that 200 is accepted.
   setResponseStatus(event, 200)
