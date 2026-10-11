@@ -30,6 +30,15 @@ useHead({
       </template>
 
       <template #right>
+        <!-- On large screens the docs tree is only in the sidebar of a docs page, and the
+             landing page has none. This is the one link that is always there. -->
+        <UButton
+          label="Docs"
+          to="/getting-started/installation"
+          color="neutral"
+          variant="ghost"
+          class="hidden lg:inline-flex"
+        />
         <UContentSearchButton />
         <UColorModeButton />
         <UButton

@@ -30,7 +30,7 @@
   <a href="https://npmjs.com/package/nuxt-pigeon"><img src="https://img.shields.io/npm/v/nuxt-pigeon/latest.svg?style=flat&colorA=020420&colorB=00DC82" alt="npm version"></a>
   <a href="https://npm.chart.dev/nuxt-pigeon"><img src="https://img.shields.io/npm/dm/nuxt-pigeon.svg?style=flat&colorA=020420&colorB=00DC82" alt="npm downloads"></a>
   <a href="https://npmjs.com/package/nuxt-pigeon"><img src="https://img.shields.io/npm/l/nuxt-pigeon.svg?style=flat&colorA=020420&colorB=00DC82" alt="License"></a>
-  <a href="https://nuxt.com"><img src="https://img.shields.io/badge/Nuxt-020420?logo=nuxt" alt="Nuxt"></a>
+  <a href="https://nuxt.com"><img src="https://img.shields.io/badge/Nuxt-4%20%7C%205-020420?logo=nuxt" alt="Nuxt 4 | 5"></a>
 </p>
 
 ```ts
@@ -86,6 +86,8 @@ Each channel is auto imported on the server. No `import`, no setup.
 
 ```ts
 // server/api/deploy.post.ts
+import { defineEventHandler } from 'nuxt/server'
+
 export default defineEventHandler(async () => {
   await discord.send('Deploy failed on `main`', {
     embeds: [{ title: 'Build #42', color: 0xd4262a }],
@@ -209,13 +211,21 @@ Errors never carry a token. For Discord and Slack the url itself is the credenti
 
 ## Nuxt compatibility
 
-Nuxt 4, Node 22 or newer. The server side runs on Nitro, the composable is the only part in the browser.
+Nuxt 4 on Nitro 2 (Nuxt 4.6 also on Nitro 3), and Nuxt 5 on Nitro 3. Node 22 or newer
+(Nuxt 5 itself needs 22.21 or 24.11). The server side runs on Nitro, the composable is the
+only part in the browser.
+
+The examples import from `nuxt/server`, which exists from Nuxt 4.6 on. On an older Nuxt 4,
+leave that line out, `defineEventHandler` is auto-imported there. The receiving example uses
+`defineNitroPlugin`, which is Nuxt 4: on Nuxt 5 write `import { definePlugin } from 'nitro'`
+and use `definePlugin` instead.
 
 ## Contributing
 
 ```bash
 pnpm install
 pnpm dev            # the playground, with every channel to click through
+pnpm dev:v5         # the same playground on Nuxt 5
 pnpm test           # vitest, no network
 pnpm test:types
 pnpm lint
