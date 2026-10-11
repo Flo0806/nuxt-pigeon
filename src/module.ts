@@ -312,7 +312,7 @@ export default defineNuxtModule<ModuleOptions>({
     // `#imports` before that. Server files only ever import `#pigeon/config`.
     const config = resolveServerVariant({
       nuxt: resolver.resolve('./runtime/server/core/config'),
-      nitro2: resolver.resolve('./runtime/server/legacy/core/config'),
+      nitro2: resolver.resolve('./runtime/server/core/config.legacy'),
     })
     if (config) {
       nuxt.options.alias['#pigeon/config'] = config
@@ -353,7 +353,10 @@ export default defineNuxtModule<ModuleOptions>({
         addServerHandler({
           route: telegramRoute,
           method: 'post',
-          handler: resolver.resolve('./runtime/server/channels/telegram/route'),
+          handler: {
+            nuxt: resolver.resolve('./runtime/server/channels/telegram/route'),
+            nitro2: resolver.resolve('./runtime/server/channels/telegram/route.legacy'),
+          },
         })
 
         if (nuxt.options.dev) {
@@ -375,7 +378,10 @@ export default defineNuxtModule<ModuleOptions>({
         addServerHandler({
           route: slackRoute,
           method: 'post',
-          handler: resolver.resolve('./runtime/server/channels/slack/route'),
+          handler: {
+            nuxt: resolver.resolve('./runtime/server/channels/slack/route'),
+            nitro2: resolver.resolve('./runtime/server/channels/slack/route.legacy'),
+          },
         })
 
         if (nuxt.options.dev) {
@@ -444,7 +450,10 @@ export default defineNuxtModule<ModuleOptions>({
       addServerHandler({
         route: webhook.route || DEFAULT_ROUTE,
         method: 'post',
-        handler: resolver.resolve('./runtime/server/webhook/route'),
+        handler: {
+          nuxt: resolver.resolve('./runtime/server/webhook/route'),
+          nitro2: resolver.resolve('./runtime/server/webhook/route.legacy'),
+        },
       })
     }
   },
