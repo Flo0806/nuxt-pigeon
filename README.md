@@ -211,11 +211,14 @@ Errors never carry a token. For Discord and Slack the url itself is the credenti
 
 ## Nuxt compatibility
 
-Nuxt 4 and 5, on Nitro 2 and 3. Node 22 or newer (Nuxt 5 itself needs 22.21 or 24.11). The
-server side runs on Nitro, the composable is the only part in the browser.
+Nuxt 4 on Nitro 2 (Nuxt 4.6 also on Nitro 3), and Nuxt 5 on Nitro 3. Node 22 or newer
+(Nuxt 5 itself needs 22.21 or 24.11). The server side runs on Nitro, the composable is the
+only part in the browser.
 
 The examples import from `nuxt/server`, which exists from Nuxt 4.6 on. On an older Nuxt 4,
-leave that line out, `defineEventHandler` is auto-imported there.
+leave that line out, `defineEventHandler` is auto-imported there. The receiving example uses
+`defineNitroPlugin`, which is Nuxt 4: on Nuxt 5 write `import { definePlugin } from 'nitro'`
+and use `definePlugin` instead.
 
 ## Contributing
 
